@@ -1,0 +1,8 @@
+{
+  "name": "Wild Meadow — Ghibli Countryside Exploration",
+  "description": "An interactive 3D painterly Ghibli-inspired countryside exploration featuring lush wildflower meadows, crystalline winding brook, arched timber bridge, and cozy traveler campsite.",
+  "permissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "status": "PASS (mock/API-level only)",
+  "drawCalls": 6,
+  "indicesPerBatch": [
+    20184,
+    182004,
+    14445,
+    10998,
+    8910,
+    336
+  ],
+  "trianglesPerFrame": 78959,
+  "buffersCreated": 5944,
+  "buffersDeleted": 5932,
+  "activeBuffers": 12,
+  "uploadedBytesCumulative": 4964088,
+  "invalidDraws": [],
+  "geometryFinite": true,
+  "timelineKeyframes": 5,
+  "seededProceduralGeneration": true,
+  "externalRuntimeDependencies": 0,
+  "realPixelRendering": "NOT TESTED"
+}
