@@ -13,7 +13,7 @@ import {
   BRIDGE_ROT_Y,
   BRIDGE_HALF_LENGTH,
 } from '../scene/terrain';
-import { MEADOW_COURSE_ROUTES } from '../scene/courseSystem';
+import { COURSE_ROUTES } from '../scene/courseLayout';
 import {
   calculateBridgeCorners,
   SPIRITED_AWAY_BRIDGE_LAYOUT,
@@ -181,8 +181,8 @@ if (offRoute.surfaceType === 'course') {
 console.log('PASS: The lane has a queryable surface with a bounded width.');
 
 
-console.log('\nTest 6: Authored course topology, obstacle clearance, and shortcut value');
-if (MEADOW_COURSE_ROUTES.length !== 2) {
+console.log('\nTest 7: Authored course topology, obstacle clearance, and shortcut value');
+if (COURSE_ROUTES.length !== 2) {
   console.error(`FAIL: Expected one main route and one shortcut; found ${MEADOW_COURSE_ROUTES.length} routes.`);
   process.exit(1);
 }
