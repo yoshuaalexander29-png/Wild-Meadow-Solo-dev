@@ -481,7 +481,7 @@ export function createCharacterController(
       // -----------------------------------------------------------------
       // Vertical Physics & Ground Elevation
       // -----------------------------------------------------------------
-      const groundSurface = getWalkableSurface(root.position.x, root.position.z);
+      const groundSurface = getWalkableSurface(root.position.x, root.position.z, { characterY: root.position.y, isGrounded, verticalVelocity });
       currentSurfaceType = groundSurface.surfaceType;
       const groundY = groundSurface.height;
 
