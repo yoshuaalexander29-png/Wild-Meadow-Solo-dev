@@ -414,7 +414,7 @@ console.log('PASS: Course deck support is one-sided and height-aware.');
 
 console.log('\nTest 13: Missed-jump recovery and authored route junction support');
 const missedGapSupport = getWalkableSurface(gapCenter.x, gapCenter.z, {
-  characterY: gapCenter.y + 0.35,
+  characterY: getTerrainHeight(gapCenter.x, gapCenter.z) + gapCenter.y + COURSE_SURFACE_LIFT + 0.35,
   isGrounded: false,
   verticalVelocity: -3.0,
 });
