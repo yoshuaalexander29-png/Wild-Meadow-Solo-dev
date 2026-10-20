@@ -11,6 +11,7 @@ import { createCharacterController, type CharacterController } from './character
 import { createThirdPersonCamera, type ThirdPersonCamera } from './thirdPersonCamera';
 import { createHeroKnight } from './heroCharacter';
 import { createMeadowCourse } from './courseSystem';
+import { getCourseAnticipation } from './courseLayout';
 
 const ASSETS = {
   warrior: 'https://cdn.cinevva.com/assets/packs/quaternius/ultimate-animated-characters/Knight_Male.glb?download=1',
@@ -295,7 +296,13 @@ export function initMeadowScene(
         characterController.model.rotation.y,
         characterController.velocity,
         characterController.isGrounded,
-        characterController.verticalSpeed
+        characterController.verticalSpeed,
+        getCourseAnticipation(
+          characterController.position.x,
+          characterController.position.z,
+          characterController.velocity.x,
+          characterController.velocity.z,
+        )
       );
     } else {
       sun.position.set(initialKnightPos.x - 13, initialKnightPos.y + 20, initialKnightPos.z + 11);
