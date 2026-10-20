@@ -7,7 +7,7 @@ import {
 } from './terrain';
 import { createDustSystem, type DustSystem } from './dustSystem';
 import { meadowAudio } from '../audio/proceduralAudio';
-import { advanceHorizontalVelocity, advanceVerticalMotion, GAME_FEEL, updateJumpAssistTimers } from './gameFeel';
+import { advanceHorizontalVelocity, advanceVerticalMotion, clampControllerDelta, GAME_FEEL, updateJumpAssistTimers } from './gameFeel';
 import type { MovementInput } from '../types';
 
 export interface CharacterControllerCallbacks {
@@ -343,7 +343,7 @@ export function createCharacterController(
     triggerEmote: doEmote,
     respawn: executeRespawn,
     update: (delta: number, input: MovementInput, cameraYaw: number, time: number) => {
-      const dt = THREE.MathUtils.clamp(delta, 0.001, 0.05);
+      const dt = clampControllerDelta(delta);
       // Treat held jump as one press. Repeatedly calling doJump while held can
       // continually refresh the jump buffer and cause an unintended auto-bunny-hop.
       const jumpPressed = !!input.jump && !previousJumpInput;
