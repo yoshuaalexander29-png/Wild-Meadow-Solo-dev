@@ -164,3 +164,35 @@ This iteration did **not** add new decorative props: no live preview/browser was
 The repository CI-equivalent commands are npm run lint (TypeScript tsc --noEmit), npm test (the Node/tsx terrain, course, game-feel, and controller verification script), and npm run build (TypeScript compile plus Vite production bundle). A successful production build currently reports a **919.64 kB minified JavaScript chunk** (**255.86 kB gzip**) and Vite's over-500-kB chunk warning. That is a bundle-size warning, not measured runtime frame-time evidence; profiling remains separate.
 
 Still unverified: actual jump landings at slow, run, and sprint approach speeds; complete route traversal; camera framing and composition at the requested route checkpoints; mobile readability; screenshot-based visual coherence; runtime frame time, draw calls, GPU/CPU memory, and repeated scene lifecycle behaviour in a browser. Course-object disposal has an idempotency test, but this does not establish whole-scene resource correctness. No industry-leading or fully polished claim is warranted from these results.
+
+
+## Traversal evidence update — 20 October 2026
+
+This section supersedes older statements about the latest verification run. The CI run for commit `a9622cd8de7cba1cea601187a470e8d208c253f4` passed type-check, the verification suite, and production build: [run 39494801851](https://github.com/yoshuaalexander29-png/Wild-Meadow-Solo-dev/actions/runs/39494801851).
+
+### Measured results and what they prove
+
+- **Actual controller update path, movement fixture:** one second of sprint input travelled **6.72 m / 6.67 m / 6.64 m** at 30 / 60 / 120 FPS. Spread: **0.08 m**. After one second of braking, horizontal speed was **0.000 m/s** at all three rates. This fixture starts at (28, 28), inside the 48 m radial boundary and away from authored obstacles; an earlier fixture outside the boundary produced misleading displacement and was corrected.
+- **Actual controller update path, jump buffering:** at 120 FPS, a press buffered during descent was consumed after landing and produced a second takeoff. This covers a flat-ground fixture, not the elevated course gap.
+- **Authored mainline gap:** route-curve chord **3.47 m**; landing deck is **0.13 m higher** than the takeoff deck. The production vertical integrator estimates **0.717 s** until descending through the landing elevation. Constant-horizontal-speed estimates over that window are **2.01 m at 2.8 m/s**, **3.73 m at 5.2 m/s**, and **5.02 m at 7.0 m/s**. The 0.42 m player radius is recorded, but is not added to root-centre travel: the course support resolver queries the root centre, not a swept capsule footprint.
+- The nominal run-speed estimate exceeds the gap chord by only **0.26 m**. This is a narrow theoretical margin and ignores acceleration history, route curvature, landing-edge tolerance, collision ordering, and actual in-game input. It is **not** evidence that a low-speed or real-controller jump across the gap succeeds.
+- Existing vertical-integrator tests report a **0.733 s** same-height flight estimate at 30 / 60 / 120 FPS, with a constant assumed 7 m/s horizontal range of **5.13 m**. A separate long-step integrator check and the controller delta-clamp tests do not simulate the whole controller through a browser hitch.
+
+### Controller-level versus isolated tests
+
+The verification suite now includes the production `createCharacterController(...).update(...)` path for frame-rate movement/braking and a buffered second jump. Existing pure-function checks exercise the horizontal response kernel, jump-assist timers, vertical integration, and delta clamping. Surface-resolver checks cover the mainline gap being absent from support, landing on an elevated course, and avoiding magnetic support from below the deck.
+
+Still **not** end-to-end verified: jumping the actual gap at slower and sprint approaches; coyote-time activation in the full controller; the character footprint at a landing edge; a full under-deck jump trajectory; missed-jump recovery through the actual controller; and route traversal from fork through merge and finish. The constant-speed reach envelope is geometry plus the production vertical integrator, not a substitute for those scenarios.
+
+### Route and environmental-storytelling audit
+
+The shared route data currently defines a 14-waypoint **Meadow Mainline**, a five-waypoint **Canopy Cut**, a mainline gap at normalized curve interval `[0.42, 0.465]`, and shared fork/merge coordinates. The renderer removes deck planks across the gap, and the support query uses the same gap interval. Elevated portions use instanced timber planks and timber posts, while the shortcut provides a route around the missing deck. These are the current construction/readability signals evidenced by source code.
+
+This pass did **not** add a new log/rope/repair-worksite prop cluster. Without a live view, placing decorative props by guessed coordinates could clutter the route or obscure the camera, and would not prove environmental storytelling. The existing fork, jump approach, landing, Canopy Cut, boardwalk, merge, scenic reveal, return, and finish therefore remain **a code-level route audit, not a confirmed coherent visual story**. The missing deck still needs a clear in-world reason visible to the player, and the route needs genuine screenshot review before it can be called visually readable or convincing.
+
+### Visual evidence, performance, and remaining limitations
+
+- **Live visual QA:** unavailable in this session. No browser/game preview or screenshot capture was exposed; no genuine gameplay screenshots were inspected. Visual cohesion, route readability, camera framing, deck seams, prop placement, and mobile readability remain unverified.
+- **Performance:** no measured frame times, draw calls, GPU timings, or memory profile were captured. Keep profiling on the backlog until the game can run under measurement.
+- **Lifecycle:** the automated suite checks that the course's owned objects are removed and repeated course disposal is safe. Full-scene teardown and long-session GPU/memory behaviour have not been profiled.
+- **Verification commands:** the repository CI runs `npm install --no-audit --no-fund`, `npm run lint` (TypeScript `tsc --noEmit`), `npm test` (`tsx src/tests/bridge_tree_verification.ts`), and `npm run build` (`tsc && vite build`). The current CI result is the authoritative check; this session does not have a local checkout to independently run those shell commands.
