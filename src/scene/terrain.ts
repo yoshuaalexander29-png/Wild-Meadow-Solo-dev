@@ -481,9 +481,21 @@ export function resolveCollision(
     const dist = Math.hypot(dx, dz);
     const minDist = obs.radius + characterRadius;
 
-    if (dist < minDist && dist > 0.0001) {
-      const nx = dx / dist;
-      const nz = dz / dist;
+    if (dist < minDist) {
+      // At the exact collider centre, dx / dist is undefined and the old
+      // epsilon guard silently skipped collision resolution. Choose a stable
+      // normal opposite incoming motion, or +X when stationary, so the player
+      // is always moved outside the collider instead of becoming trapped.
+      let nx: number;
+      let nz: number;
+      if (dist > 0.0001) {
+        nx = dx / dist;
+        nz = dz / dist;
+      } else {
+        const incomingSpeed = Math.hypot(slideVelX, slideVelZ);
+        nx = incomingSpeed > 0.0001 ? -slideVelX / incomingSpeed : 1;
+        nz = incomingSpeed > 0.0001 ? -slideVelZ / incomingSpeed : 0;
+      }
 
       // Push out to collider surface
       resolvedX = obs.x + nx * minDist;
