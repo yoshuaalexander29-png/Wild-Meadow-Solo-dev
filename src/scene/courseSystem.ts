@@ -262,6 +262,56 @@ export function createMeadowCourse(scene: THREE.Scene): MeadowCourse {
     supportMaterial.dispose();
   }
 
+  // Cross-beams tie each pair of timber posts together beneath raised deck
+  // sections. They explain how the elevated lane is carried without adding
+  // silhouettes or collision blockers on the running surface. Instancing keeps
+  // the detail to one draw call and uses the same authored support stations.
+  const crossbeamGeometry = new THREE.BoxGeometry(1, 0.12, 0.18);
+  const crossbeamMaterial = new THREE.MeshStandardMaterial({
+    color: '#60462f',
+    roughness: 0.94,
+    metalness: 0,
+  });
+  const crossbeamCapacity = COURSE_ROUTES.length * 10;
+  const crossbeams = new THREE.InstancedMesh(crossbeamGeometry, crossbeamMaterial, crossbeamCapacity);
+  crossbeams.name = 'MeadowCourse_InstancedTimberCrossbeams';
+  crossbeams.castShadow = true;
+  crossbeams.receiveShadow = true;
+  const crossbeamPosition = new THREE.Vector3();
+  const crossbeamScale = new THREE.Vector3();
+  const crossbeamRotation = new THREE.Quaternion();
+  const crossbeamMatrix = new THREE.Matrix4();
+  const crossbeamPoint = new THREE.Vector3();
+  const crossbeamTangent = new THREE.Vector3();
+  let crossbeamIndex = 0;
+  for (const { curve, definition } of routes) {
+    for (let i = 1; i < 10 && crossbeamIndex < crossbeamCapacity; i++) {
+      const t = i / 10;
+      curve.getPointAt(t, crossbeamPoint);
+      if (crossbeamPoint.y < 0.28) continue;
+      curve.getTangentAt(t, crossbeamTangent).setY(0).normalize();
+      const terrainY = getTerrainHeight(crossbeamPoint.x, crossbeamPoint.z);
+      crossbeamPosition.set(
+        crossbeamPoint.x,
+        terrainY + crossbeamPoint.y + COURSE_SURFACE_LIFT - 0.07,
+        crossbeamPoint.z,
+      );
+      crossbeamRotation.setFromUnitVectors(_up.clone().set(0, 0, 1), crossbeamTangent);
+      crossbeamScale.set(definition.width + definition.edge * 1.25, 1, 1);
+      crossbeamMatrix.compose(crossbeamPosition, crossbeamRotation, crossbeamScale);
+      crossbeams.setMatrixAt(crossbeamIndex++, crossbeamMatrix);
+    }
+  }
+  crossbeams.count = crossbeamIndex;
+  crossbeams.instanceMatrix.needsUpdate = true;
+  if (crossbeamIndex > 0) {
+    scene.add(crossbeams);
+    owned.push(crossbeams);
+  } else {
+    crossbeamGeometry.dispose();
+    crossbeamMaterial.dispose();
+  }
+
   let disposed = false;
   return {
     dispose() {
