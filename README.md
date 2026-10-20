@@ -80,7 +80,7 @@ Movement response values live in `src/scene/gameFeel.ts` so the controller, came
 
 Apex assistance is deliberately rising-only: reducing gravity for small-magnitude downward velocity made landings floatier and extended short drops, so the integrator now applies the 0.65 gravity scale only for positive vertical velocity below the 1.8 m/s threshold. A regression test checks rising and descending cases independently.
 
-The controller currently clamps each rendered-frame simulation delta to 50 ms; it does not yet run the *entire* movement/collision controller on a fixed-step accumulator. The vertical integrator substeps internally, but this does not make collision resolution or horizontal movement fully deterministic across frame rates. Do not treat the jump-integrator test as a full-controller certification.
+The controller uses a shared, tested delta clamp: frame deltas are limited to 1–50 ms, and non-finite values fall back to 1/60 s. A 120 ms hitch therefore advances one controller update by at most 50 ms; it does not yet run the *entire* movement/collision controller on a fixed-step accumulator. The vertical integrator substeps internally, but this does not make collision resolution or horizontal movement fully deterministic across frame rates. Do not treat the jump-integrator test as a full-controller certification.
 
 Game-feel values are engineering starting points, not universal standards. A playable browser session and repeated jumps at multiple approach speeds are still required to tune them by feel. Validate both low-speed approaches and sprint approaches before changing the gap dimensions or jump strength.
 
