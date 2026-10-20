@@ -50,15 +50,20 @@ const routeSamples = COURSE_ROUTES.map((route) => {
     'centripetal',
     0.35,
   );
-  return Array.from({ length: COURSE_SAMPLE_COUNT + 1 }, (_, index): RouteSample => {
-    const t = index / COURSE_SAMPLE_COUNT;
-    const point = curve.getPointAt(t);
-    const tangent = curve.getTangentAt(t).setY(0).normalize();
+  const points = Array.from({ length: COURSE_SAMPLE_COUNT + 1 }, (_, index) =>
+    curve.getPointAt(index / COURSE_SAMPLE_COUNT)
+  );
+  return points.map((point, index): RouteSample => {
+    const before = points[Math.max(0, index - 1)];
+    const after = points[Math.min(points.length - 1, index + 1)];
+    const dx = after.x - before.x;
+    const dz = after.z - before.z;
+    const length = Math.hypot(dx, dz) || 1;
     return {
       x: point.x,
       z: point.z,
-      tangentX: tangent.x,
-      tangentZ: tangent.z,
+      tangentX: dx / length,
+      tangentZ: dz / length,
       width: route.width,
     };
   });
