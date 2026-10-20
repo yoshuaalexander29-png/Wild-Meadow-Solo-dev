@@ -273,4 +273,38 @@ if (rampSurface.slopeAngle < 0.01) {
 }
 console.log(`PASS: Course lift profiles are valid; sampled waypoint grades stay under 12°; ramp support slope is ${(rampSurface.slopeAngle * 180 / Math.PI).toFixed(1)}°.`);
 
+
+ 
+console.log('\nTest 9: Explicit mainline jump gap and shortcut bypass');
+const jumpGap = mainRoute.gaps?.[0];
+if (!jumpGap) {
+  console.error('FAIL: Mainline has no authored jump gap.');
+  process.exit(1);
+}
+const mainCurveWithLift = new THREE.CatmullRomCurve3(
+  mainRoute.points.map(([x, z], index) => new THREE.Vector3(x, mainRoute.lifts[index] ?? 0, z)),
+  false,
+  'centripetal',
+  0.35,
+);
+const gapStart = mainCurveWithLift.getPointAt(jumpGap[0]);
+const gapEnd = mainCurveWithLift.getPointAt(jumpGap[1]);
+const gapCenter = mainCurveWithLift.getPointAt((jumpGap[0] + jumpGap[1]) * 0.5);
+const gapLength = Math.hypot(gapEnd.x - gapStart.x, gapEnd.z - gapStart.z);
+const gapSurface = getCourseSurface(gapCenter.x, gapCenter.z, getTerrainHeight);
+console.log(`  Gap length: ${gapLength.toFixed(2)}m; center: (${gapCenter.x.toFixed(1)}, ${gapCenter.z.toFixed(1)})`);
+if (gapLength < 3.0 || gapLength > 5.0) {
+  console.error('FAIL: Mainline gap is outside the current jump-range design budget.');
+  process.exit(1);
+}
+if (gapSurface !== null) {
+  console.error('FAIL: Collision resolver still reports a walkable course surface inside the visual gap.');
+  process.exit(1);
+}
+if (!shortcutRoute.points.some(([x, z]) => Math.hypot(x - gapCenter.x, z - gapCenter.z) > 2.5)) {
+  console.error('FAIL: Shortcut does not spatially bypass the mainline gap.');
+  process.exit(1);
+}
+console.log('PASS: Gap is physically absent from the shared support query and a separate route bypasses it.');
+
 console.log('\n=== ALL AUDIT TESTS PASSED SUCCESSFULLY ===');
