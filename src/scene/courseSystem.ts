@@ -22,6 +22,7 @@ function makeRibbon(
   lift: number,
   color: string,
   segments: number,
+  gaps: Array<[number, number]> = [],
 ): THREE.Mesh {
   const positions: number[] = [];
   const uvs: number[] = [];
@@ -41,8 +42,12 @@ function makeRibbon(
       uvs.push(edge < 0 ? 0 : 1, t * 10);
     }
     if (i < segments) {
-      const a = i * 2;
-      indices.push(a, a + 2, a + 1, a + 1, a + 2, a + 3);
+      const midpoint = (i + 0.5) / segments;
+      const inGap = gaps.some(([start, end]) => midpoint >= start && midpoint <= end);
+      if (!inGap) {
+        const a = i * 2;
+        indices.push(a, a + 2, a + 1, a + 1, a + 2, a + 3);
+      }
     }
   }
   const geometry = new THREE.BufferGeometry();
@@ -63,8 +68,8 @@ function makeRibbon(
   return mesh;
 }
 
-function makeGuideLine(curve: THREE.CatmullRomCurve3, width: number, color: string): THREE.Mesh {
-  return makeRibbon(curve, width, COURSE_SURFACE_LIFT + 0.01, color, COURSE_SAMPLE_COUNT);
+function makeGuideLine(curve: THREE.CatmullRomCurve3, width: number, color: string, gaps: Array<[number, number]> = []): THREE.Mesh {
+  return makeRibbon(curve, width, COURSE_SURFACE_LIFT + 0.01, color, COURSE_SAMPLE_COUNT, gaps);
 }
 
 export function createMeadowCourse(scene: THREE.Scene): MeadowCourse {
@@ -79,19 +84,19 @@ export function createMeadowCourse(scene: THREE.Scene): MeadowCourse {
     routes.push({ curve, definition });
 
     // A subtle, darker shoulder gives the course a readable silhouette against grass.
-    const shoulder = makeRibbon(curve, definition.width + definition.edge * 2, COURSE_SURFACE_LIFT - 0.03, '#536b4b', COURSE_SAMPLE_COUNT);
+    const shoulder = makeRibbon(curve, definition.width + definition.edge * 2, COURSE_SURFACE_LIFT - 0.03, '#536b4b', COURSE_SAMPLE_COUNT, definition.gaps);
     shoulder.name = definition.name + ' / moss shoulder';
     scene.add(shoulder);
     owned.push(shoulder);
 
-    const lane = makeRibbon(curve, definition.width, COURSE_SURFACE_LIFT, definition.color, COURSE_SAMPLE_COUNT);
+    const lane = makeRibbon(curve, definition.width, COURSE_SURFACE_LIFT, definition.color, COURSE_SAMPLE_COUNT, definition.gaps);
     lane.name = definition.name + ' / running lane';
     scene.add(lane);
     owned.push(lane);
 
     // Thin center guide is restrained on purpose; it communicates direction without
     // turning the pastoral environment into a neon race track.
-    const guide = makeGuideLine(curve, 0.075, definition.accent);
+    const guide = makeGuideLine(curve, 0.075, definition.accent, definition.gaps);
     guide.name = definition.name + ' / guide';
     scene.add(guide);
     owned.push(guide);
