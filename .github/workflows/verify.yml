@@ -32,6 +32,6 @@ jobs:
       - name: Type-check
         run: npm run lint
       - name: Run terrain and bridge verification
-        run: npx --yes tsx src/tests/bridge_tree_verification.ts
+        run: npm test
       - name: Production build
         run: npm run build
