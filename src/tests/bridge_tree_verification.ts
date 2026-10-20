@@ -15,6 +15,7 @@ import {
 } from '../scene/terrain';
 import { COURSE_ROUTES, getCourseSurface, getCourseAnticipation, getCourseBoardwalkOffset, COURSE_SURFACE_LIFT } from '../scene/courseLayout';
 import { advanceVerticalMotion, JUMP_INITIAL_SPEED } from '../scene/characterController';
+import { createMeadowCourse } from '../scene/courseSystem';
 import {
   calculateBridgeCorners,
   SPIRITED_AWAY_BRIDGE_LAYOUT,
@@ -449,5 +450,21 @@ if (jumpRuns.find((run) => run.label === '30 FPS')!.distance < 4.0) {
   process.exit(1);
 }
 console.log('PASS: Gameplay and test share the same bounded-substep integrator; jump range remains within the current tolerance.');
+
+console.log('\nTest 14: Course scene cleanup is complete and idempotent');
+const lifecycleScene = new THREE.Scene();
+const lifecycleCourse = createMeadowCourse(lifecycleScene);
+const ownedObjectCount = lifecycleScene.children.length;
+if (ownedObjectCount < 5) {
+  console.error(`FAIL: Expected route and instanced course objects, found ${ownedObjectCount}.`);
+  process.exit(1);
+}
+lifecycleCourse.dispose();
+lifecycleCourse.dispose();
+if (lifecycleScene.children.length !== 0) {
+  console.error(`FAIL: Course cleanup left ${lifecycleScene.children.length} scene objects behind.`);
+  process.exit(1);
+}
+console.log(`PASS: ${ownedObjectCount} course scene objects removed; repeated disposal did not throw.`);
 
 console.log('\n=== ALL AUDIT TESTS PASSED SUCCESSFULLY ===');
