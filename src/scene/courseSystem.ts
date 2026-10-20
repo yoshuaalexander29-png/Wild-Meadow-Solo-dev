@@ -23,6 +23,7 @@ function makeRibbon(
   color: string,
   segments: number,
   gaps: Array<[number, number]> = [],
+  heightOffset: (routeLift: number) => number = () => 0,
 ): THREE.Mesh {
   const positions: number[] = [];
   const uvs: number[] = [];
@@ -38,7 +39,7 @@ function makeRibbon(
     for (const edge of [-1, 1]) {
       const x = point.x + side.x * width * 0.5 * edge;
       const z = point.z + side.z * width * 0.5 * edge;
-      positions.push(x, getTerrainHeight(x, z) + point.y + lift, z);
+      positions.push(x, getTerrainHeight(x, z) + point.y + lift + heightOffset(point.y), z);
       uvs.push(edge < 0 ? 0 : 1, t * 10);
     }
     if (i < segments) {
@@ -69,7 +70,9 @@ function makeRibbon(
 }
 
 function makeGuideLine(curve: THREE.CatmullRomCurve3, width: number, color: string, gaps: Array<[number, number]> = []): THREE.Mesh {
-  return makeRibbon(curve, width, COURSE_SURFACE_LIFT + 0.01, color, COURSE_SAMPLE_COUNT, gaps);
+  // Keep the amber guide visible above the gradually raised timber deck, rather
+  // than letting it disappear beneath the plank geometry on elevated sections.
+  return makeRibbon(curve, width, COURSE_SURFACE_LIFT + 0.003, color, COURSE_SAMPLE_COUNT, gaps, getCourseBoardwalkOffset);
 }
 
 export function createMeadowCourse(scene: THREE.Scene): MeadowCourse {
