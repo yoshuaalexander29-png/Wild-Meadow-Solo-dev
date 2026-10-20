@@ -1221,6 +1221,7 @@ export function createPlatformerCourse(scene: THREE.Scene, seed = 42): Platforme
     return {
       height: bestCandidate.height,
       normal: bestCandidate.normal.clone(),
+      surfaceId: bestCandidate.segmentId,
       surfaceType: 'wood',
       waterDepth: 0,
       isBridge: true,
