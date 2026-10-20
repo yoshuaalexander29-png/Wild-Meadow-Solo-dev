@@ -614,7 +614,6 @@ if (lifecycleScene.children.length !== 0) {
 }
 console.log(`PASS: ${ownedObjectCount} course scene objects removed; repeated disposal did not throw.`);
 
-console.log('\n=== ALL AUDIT TESTS PASSED SUCCESSFULLY ===');
 
 
 console.log('\\nTest 17: Authored gap reach envelope (vertical production integrator + route geometry)');
