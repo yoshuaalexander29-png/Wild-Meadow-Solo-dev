@@ -94,6 +94,8 @@ export function getCourseSurface(
   let bestDistanceSq = Number.POSITIVE_INFINITY;
   let bestWidth = 0;
   let bestLift = 0;
+  let bestLiftGradientX = 0;
+  let bestLiftGradientZ = 0;
   for (const samples of routeSamples) {
     for (let i = 0; i < samples.length - 1; i++) {
       const a = samples[i];
@@ -113,6 +115,10 @@ export function getCourseSurface(
         bestDistanceSq = distanceSq;
         bestWidth = a.width;
         bestLift = THREE.MathUtils.lerp(a.lift, b.lift, t);
+        const segmentLength = Math.sqrt(lengthSq) || 1;
+        const liftSlope = (b.lift - a.lift) / segmentLength;
+        bestLiftGradientX = liftSlope * dx / segmentLength;
+        bestLiftGradientZ = liftSlope * dz / segmentLength;
       }
     }
   }
@@ -124,7 +130,13 @@ export function getCourseSurface(
   const hR = terrainHeightAt(x + eps, z);
   const hD = terrainHeightAt(x, z - eps);
   const hU = terrainHeightAt(x, z + eps);
-  const normal = new THREE.Vector3(hL - hR, 2 * eps, hD - hU).normalize();
+  // Include the authored vertical profile in the support normal. This keeps the
+  // character's pitch aligned to ramps instead of treating raised lanes as flat.
+  const normal = new THREE.Vector3(
+    hL - hR - 2 * eps * bestLiftGradientX,
+    2 * eps,
+    hD - hU - 2 * eps * bestLiftGradientZ,
+  ).normalize();
   return {
     height: terrainH + bestLift + COURSE_SURFACE_LIFT,
     normal,
