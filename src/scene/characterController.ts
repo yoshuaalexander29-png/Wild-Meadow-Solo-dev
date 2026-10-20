@@ -547,7 +547,7 @@ export function createCharacterController(
         currentSurfaceId
       );
       currentSurfaceType = surface.surfaceType;
-      currentSurfaceId = surface.isBridge ? 'bridge' : surface.surfaceType;
+      currentSurfaceId = surface.surfaceId ?? (surface.isBridge ? 'bridge' : surface.surfaceType);
       const groundY = surface.height;
 
       // Surface slope and banking adaptation based on surface normal projected onto character heading

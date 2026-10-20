@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { getTerrainHeight, getDistanceToPath, getDistanceToStream } from './terrain';
+import type { CourseSegmentData } from './platformerCourse';
 
 export interface GrassSystem {
   mesh: THREE.InstancedMesh;
@@ -92,10 +93,35 @@ function mergeGeometriesManually(geometries: THREE.BufferGeometry[]): THREE.Buff
   return merged;
 }
 
-export function createGrassSystem(scene: THREE.Scene): GrassSystem {
+function isInsideCourseCorridor(
+  x: number,
+  z: number,
+  segments: readonly CourseSegmentData[],
+  extraClearance: number
+): boolean {
+  for (const segment of segments) {
+    if (segment.isAirGap) continue;
+    for (const sample of segment.samples) {
+      const halfWidth = sample.width * 0.5 + extraClearance;
+      if (
+        Math.abs(sample.point.x - x) <= halfWidth &&
+        Math.abs(sample.point.z - z) <= halfWidth &&
+        Math.hypot(sample.point.x - x, sample.point.z - z) <= halfWidth
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+export function createGrassSystem(
+  scene: THREE.Scene,
+  courseSegments: readonly CourseSegmentData[] = []
+): GrassSystem {
   // Blade geometry: 2-segment tapered blade with curved spine
-  const bladeWidth = 0.07;
-  const bladeHeight = 0.54;
+  const bladeWidth = 0.045;
+  const bladeHeight = 0.34;
   const grassGeo = new THREE.ConeGeometry(bladeWidth, bladeHeight, 3);
   grassGeo.translate(0, bladeHeight * 0.5, 0);
 
@@ -132,7 +158,7 @@ export function createGrassSystem(scene: THREE.Scene): GrassSystem {
       `
       #include <begin_vertex>
       
-      float hRatio = clamp(position.y / 0.54, 0.0, 1.0);
+      float hRatio = clamp(position.y / 0.34, 0.0, 1.0);
       vHeightRatio = hRatio;
 
       #ifdef USE_INSTANCING
@@ -185,7 +211,7 @@ export function createGrassSystem(scene: THREE.Scene): GrassSystem {
     );
   };
 
-  const bladeCount = 8800;
+  const bladeCount = 6400;
   const grassMesh = new THREE.InstancedMesh(grassGeo, grassMat, bladeCount);
   grassMesh.receiveShadow = true;
   grassMesh.castShadow = false;
@@ -207,6 +233,9 @@ export function createGrassSystem(scene: THREE.Scene): GrassSystem {
 
     // Avoid water channel & river banks
     if (getDistanceToStream(x, z) < 1.6) continue;
+
+    // Keep the authored platforming ribbon readable and physically clear.
+    if (isInsideCourseCorridor(x, z, courseSegments, 0.58)) continue;
 
     // Avoid campfire hearth
     if (Math.hypot(x - 2.2, z - 2.2) < 1.4) continue;
@@ -230,8 +259,8 @@ export function createGrassSystem(scene: THREE.Scene): GrassSystem {
     dummy.position.set(x, y - 0.02, z);
     dummy.rotation.set((rnd() - 0.5) * 0.1, rnd() * Math.PI * 2, (rnd() - 0.5) * 0.12);
 
-    const s = 0.75 + rnd() * 0.65;
-    dummy.scale.set(s, s * (0.8 + rnd() * 0.5), s);
+    const s = 0.72 + rnd() * 0.48;
+    dummy.scale.set(s, s * (0.76 + rnd() * 0.34), s);
     dummy.updateMatrix();
 
     grassMesh.setMatrixAt(placed, dummy.matrix);
@@ -317,6 +346,7 @@ export function createGrassSystem(scene: THREE.Scene): GrassSystem {
       const z = Math.sin(driftAngle) * r + (rnd() - 0.5) * 4.5;
 
       if (getDistanceToPath(x, z) < 1.35) continue;
+      if (isInsideCourseCorridor(x, z, courseSegments, 0.7)) continue;
       if (getDistanceToStream(x, z) < 1.65) continue;
       if (Math.hypot(x - 2.2, z - 2.2) < 1.6) continue;
       if (Math.hypot(x - (-1.1), z - (-6.9)) < 2.8) continue;
