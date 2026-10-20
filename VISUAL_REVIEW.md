@@ -1,29 +1,34 @@
-# WILD MEADOW — Visual Review
+# WILD MEADOW — Visual QA Status
 
-## Genuine rendered captures
+## Evidence status
 
-Six PNG captures are included under `evidence/` at 1280×800, labelled 0, 4, 8, 12, 16 and 20 seconds. `evidence/contact-sheet.png` is a convenience overview of those six captures. The captures show actual scene pixels, not concept art or mock-WebGL output.
+This document is a QA status record, not a claim that the current course has passed visual review.
 
-## Findings from inspection
+The repository does **not** currently contain the PNG captures previously described as being under `evidence/`. The claimed contact sheet and individual screenshots could not be located on this branch. Therefore, there is no verifiable screenshot evidence in this checkout to support a claim that the current rendered course has been visually inspected.
 
-- The scene is visible and the two hero figures can be distinguished; the silver-haired warrior's sword silhouette reads clearly.
-- The deer-centaur's torso-to-deer transition and limbs still read as simplified assembled geometry rather than finished character anatomy.
-- The warrior's face, hair, clothing and armour are also low-detail; facial expression is weak at the full-scene framing.
-- The meadow is broad and colourful, but ground cover is too sparse and repeated isolated grass tufts read as scattered marks rather than dense layered vegetation.
-- Trees and distant atmosphere establish depth, but silhouettes are repetitive and terrain forms are understated.
-- HUD panels are legible but take up some of the cinematic frame and feel like a debug/presentation overlay rather than an integrated cinematic treatment.
-- The nominal 0–20 s captures have similar compositions; the camera progression appears subtler than the requested sequence. These stills alone do not prove the animation advances correctly or that the captures are from exact timeline timestamps.
+## What is known
 
-## Verification limits
+- The TypeScript/Vite production build was reported as successful by the prior AI Studio session.
+- The reported course test run had 7 failures out of 12 tests before the latest repairs.
+- The test and course source contain browser-canvas dependencies; those can be exercised with headless canvas mocks for logic/lifecycle tests, but that does not verify actual pixels.
+- No verified frame-time measurements, mobile device results, or complete playthrough recording are available in the current repository evidence.
 
-- Pixel output: observed in the included captures.
-- Browser/OS/graphics renderer metadata: not yet fully recorded.
-- Shader compilation and WebGL context: not independently documented in this review.
-- FPS/frame time, mobile memory, thermal behaviour, touch, orientation and iPhone 14 Safari: not measured / not tested.
+## Required visual QA before sign-off
 
-## Highest-impact next visual fixes
+Capture the actual running WebGL game and review these moments at gameplay distance:
 
-1. Replace or substantially redesign the two hero models, especially the centaur body construction and faces.
-2. Increase authored ground-cover density with distinct composition zones while preserving a clear stage around both characters.
-3. Strengthen camera staging so the six timeline points show clearly different, intentional views.
-4. Reduce the debug-overlay feel for the final cinematic presentation.
+1. Start gate and run-up.
+2. Fork with both route choices visible.
+3. Ramp silhouette and takeoff.
+4. Airborne trajectory and landing pad.
+5. Safe lower route and recovery after a missed jump.
+6. Banked turn and merge seam.
+7. Elevated underpass with the player visible and on the correct surface.
+8. Scenic reveal and finish.
+9. Neutral-white dust over both dark grass and pale ground.
+
+Record browser, operating system, viewport, graphics context and any console errors with the captures. Inspect both desktop and supported touch layouts. Measure performance separately; screenshots cannot prove frame rate or memory stability.
+
+## Sign-off
+
+**Visual quality: not yet verified.** Do not describe the course as visually complete or studio-grade until the captures and gameplay checks above exist and have been reviewed.
