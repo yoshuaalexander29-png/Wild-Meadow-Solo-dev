@@ -14,7 +14,7 @@ import {
   BRIDGE_HALF_LENGTH,
 } from '../scene/terrain';
 import { COURSE_ROUTES, getCourseSurface, getCourseAnticipation, getCourseBoardwalkOffset, COURSE_SURFACE_LIFT } from '../scene/courseLayout';
-import { advanceVerticalMotion, GAME_FEEL, getResponseAlpha, updateJumpAssistTimers } from '../scene/gameFeel';
+import { advanceHorizontalVelocity, advanceVerticalMotion, GAME_FEEL, getResponseAlpha, updateJumpAssistTimers } from '../scene/gameFeel';
 import { createMeadowCourse } from '../scene/courseSystem';
 import {
   calculateBridgeCorners,
@@ -411,7 +411,51 @@ if (underDeck.surfaceType === 'course' || descendingAboveDeck.surfaceType !== 'c
 }
 console.log('PASS: Course deck support is one-sided and height-aware.');
 
-console.log('\nTest 13: Centralized game-feel values and jump-assist timing');
+console.log('\nTest 13: Full-controller horizontal motion kernel and response timing');
+function simulateHorizontalMotion(
+  startX: number,
+  startZ: number,
+  targetX: number,
+  targetZ: number,
+  response: number,
+  fps: number,
+  durationSeconds: number,
+) {
+  let x = startX;
+  let z = startZ;
+  const dt = 1 / fps;
+  const steps = Math.round(durationSeconds * fps);
+  for (let i = 0; i < steps; i++) {
+    const step = advanceHorizontalVelocity(x, z, targetX, targetZ, response, dt);
+    x = step.x;
+    z = step.z;
+  }
+  return { x, z };
+}
+const accelerationResults = [30, 60, 120].map((fps) =>
+  simulateHorizontalMotion(0, 0, 7, 0, GAME_FEEL.groundAcceleration, fps, 1).x
+);
+const brakingResults = [30, 60, 120].map((fps) =>
+  simulateHorizontalMotion(7, 0, 0, 0, GAME_FEEL.groundBraking, fps, 0.5).x
+);
+const airSteerResults = [30, 60, 120].map((fps) =>
+  simulateHorizontalMotion(0, 0, 0, 7, GAME_FEEL.airControl, fps, 1).z
+);
+const frameConsistent = (values: number[]) => Math.max(...values) - Math.min(...values) < 1e-8;
+if (!frameConsistent(accelerationResults) || !frameConsistent(brakingResults) || !frameConsistent(airSteerResults)) {
+  console.error('FAIL: horizontal acceleration/braking/air steering changed with render frame rate.');
+  process.exit(1);
+}
+if (accelerationResults[0] < 6.999 || brakingResults[0] > 0.001 || airSteerResults[0] < 6.99) {
+  console.error('FAIL: horizontal motion response failed its one-second/half-second response contract.');
+  process.exit(1);
+}
+console.log(`  1s ground acceleration to 7m/s at 30/60/120 FPS: ${accelerationResults.map(v => v.toFixed(4)).join(' / ')} m/s`);
+console.log(`  0.5s braking from 7m/s at 30/60/120 FPS: ${brakingResults.map(v => v.toFixed(4)).join(' / ')} m/s`);
+console.log(`  1s air steering to 7m/s at 30/60/120 FPS: ${airSteerResults.map(v => v.toFixed(4)).join(' / ')} m/s`);
+console.log('PASS: live-controller horizontal response kernel is deterministic across tested render rates.');
+
+console.log('\nTest 14: Centralized game-feel values and jump-assist timing');
 if (GAME_FEEL.coyoteTimeSeconds !== 0.16 || GAME_FEEL.jumpBufferSeconds !== 0.2) {
   console.error('FAIL: Documented coyote/buffer timing changed unexpectedly.');
   process.exit(1);
@@ -450,7 +494,7 @@ console.log(`  Coyote: ${GAME_FEEL.coyoteTimeSeconds.toFixed(2)}s; buffer: ${GAM
 console.log(`  One-second air-steering speed at 30/60/120 FPS: ${response30.toFixed(4)} / ${response60.toFixed(4)} / ${response120.toFixed(4)} m/s`);
 console.log('PASS: Coyote/buffer clocks and the controller movement-response helper meet their timing contracts.');
 
-console.log('\nTest 14: Shared jump trajectory across frame rates and frame hitches');
+console.log('\nTest 15: Shared jump trajectory across frame rates and frame hitches');
 function simulateJump(frameDelta: number) {
   let y = 0;
   let velocity: number = GAME_FEEL.jumpInitialSpeed;
@@ -490,7 +534,7 @@ if (jumpRuns.find((run) => run.label === '30 FPS')!.distance < 4.0) {
 }
 console.log('PASS: Gameplay and test share the same bounded-substep integrator; jump range remains within the current tolerance.');
 
-console.log('\nTest 15: Course scene cleanup is complete and idempotent');
+console.log('\nTest 16: Course scene cleanup is complete and idempotent');
 const lifecycleScene = new THREE.Scene();
 const lifecycleCourse = createMeadowCourse(lifecycleScene);
 const ownedObjectCount = lifecycleScene.children.length;
