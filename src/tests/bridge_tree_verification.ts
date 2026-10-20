@@ -157,4 +157,22 @@ if (descendingOntoDeck.surfaceType !== 'wood') {
 }
 console.log('PASS: Surface support respects vertical position and descent direction.');
 
+
+ 
+// 6. Course mesh/collision share one route source and the lane has a bounded footprint.
+console.log('\nTest 6: Shared route and collision surface');
+const routeCenter = getWalkableSurface(5.5, -1.0);
+const offRoute = getWalkableSurface(5.5, 3.5);
+console.log(`  Mainline center: ${routeCenter.surfaceType} at ${routeCenter.height.toFixed(2)}m`);
+console.log(`  Off-route control: ${offRoute.surfaceType} at ${offRoute.height.toFixed(2)}m`);
+if (routeCenter.surfaceType !== 'course') {
+  console.error('FAIL: Authored mainline center did not resolve to its shared course surface.');
+  process.exit(1);
+}
+if (offRoute.surfaceType === 'course') {
+  console.error('FAIL: Course collision footprint expanded beyond the authored lane width.');
+  process.exit(1);
+}
+console.log('PASS: The lane has a queryable surface with a bounded width.');
+
 console.log('\n=== ALL AUDIT TESTS PASSED SUCCESSFULLY ===');
