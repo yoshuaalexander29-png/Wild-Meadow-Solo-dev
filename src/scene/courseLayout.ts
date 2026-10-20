@@ -11,6 +11,8 @@ export interface CourseRouteDefinition {
   color: string;
   accent: string;
   rings: number[];
+  /** Parameter intervals with no deck; the shorter route may bypass them. */
+  gaps?: Array<[number, number]>;
 }
 
 export const COURSE_SURFACE_LIFT = 0.065;
@@ -25,7 +27,8 @@ export const COURSE_ROUTES: CourseRouteDefinition[] = [
     edge: 0.16,
     color: '#d8c69a',
     accent: '#e5b45a',
-    rings: [0.13, 0.62, 0.94],
+    rings: [0.13, 0.405, 0.62, 0.94],
+    gaps: [[0.42, 0.48]],
   },
   {
     name: 'Canopy Cut',
@@ -46,6 +49,8 @@ interface RouteSample {
   tangentZ: number;
   lift: number;
   width: number;
+  progress: number;
+  gaps: Array<[number, number]>;
 }
 
 const routeSamples = COURSE_ROUTES.map((route) => {
@@ -71,6 +76,8 @@ const routeSamples = COURSE_ROUTES.map((route) => {
       tangentZ: dz / length,
       lift: point.y,
       width: route.width,
+      progress: t,
+      gaps: route.gaps ?? [],
     };
   });
 });
@@ -100,6 +107,8 @@ export function getCourseSurface(
     for (let i = 0; i < samples.length - 1; i++) {
       const a = samples[i];
       const b = samples[i + 1];
+      const progress = (a.progress + b.progress) * 0.5;
+      if (a.gaps.some(([start, end]) => progress >= start && progress <= end)) continue;
       const dx = b.x - a.x;
       const dz = b.z - a.z;
       const lengthSq = dx * dx + dz * dz;
