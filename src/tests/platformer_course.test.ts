@@ -173,6 +173,7 @@ describe('Wild Meadow Platformer Course & Core Systems', () => {
     );
 
     expect(query.isBridge).toBe(true);
+    expect(query.surfaceId).toBe('seg_skill_ramp');
     expect(query.height).toBeCloseTo(midSample.point.y, 1);
 
     course.dispose();
@@ -200,7 +201,8 @@ describe('Wild Meadow Platformer Course & Core Systems', () => {
     expect(upperQuery.height).toBeCloseTo(elevatedY, 1);
 
     // Case 2: Character beneath the elevated deck on ground level
-    const lowerQuery = resolver(testX, testZ, groundTerrainY, 0, true, 'ground');
+    // Even a stale previous course ID must not pull the character up from below.
+    const lowerQuery = resolver(testX, testZ, groundTerrainY, 0, true, 'seg_skill_ramp');
     expect(lowerQuery.isBridge).toBe(false); // Ground terrain, not the elevated deck!
     expect(lowerQuery.height).toBeCloseTo(groundTerrainY, 2);
 
