@@ -126,7 +126,7 @@ npm test
 npm run build
 ```
 
-The verification suite checks bridge support, course entry distance, sampled obstacle and brook clearance, shortcut length, ramp grade limits, ramp-aware support normals, the open collision gap, one-sided elevated-deck support, boardwalk/support-height agreement, directional camera anticipation, and the shared jump integrator at 30/60/120 FPS plus a 120 ms frame hitch.
+The verification suite checks bridge support, course entry distance, sampled obstacle and brook clearance, shortcut length, ramp grade limits, ramp-aware support normals, the open collision gap, one-sided elevated-deck support, boardwalk/support-height agreement, directional camera anticipation, horizontal acceleration/braking/air-control response at 30/60/120 FPS, coyote/buffer timing, vertical jump integration at 30/60/120 FPS plus a 120 ms integrator step, exact-centre obstacle recovery, perimeter sliding, and idempotent course disposal. Horizontal motion tests exercise the same pure response kernel used by the controller; they are not a full end-to-end simulation of all controller state and collision ordering.
 
 Latest successful CI run (Node 20, commit `004c5ec3d8b37fe716730699b8d738baa45c2423`) reported:
 - One-second horizontal response toward a 7.0 m/s target using the shared exponential response: **6.9997 m/s** at 30, 60, and 120 FPS.
@@ -134,5 +134,7 @@ Latest successful CI run (Node 20, commit `004c5ec3d8b37fe716730699b8d738baa45c2
 - A 120 ms integrator test step produced a **0.840 s** sampled flight time and **5.88 m** estimated range. This is a numerical integration check, not a test of the full controller during a 120 ms browser hitch: the controller currently clamps each update delta to 50 ms.
 
 These numbers are automated model outputs, not in-game telemetry, actual landing success rates, or measured player experience. No live-device frame-time, GPU draw-call, memory, or visual screenshot measurements have been captured in this environment.
+
+A code review also found and fixed a collision edge case: an actor exactly at an obstacle's centre was previously skipped by the distance epsilon guard. Collision resolution now chooses a deterministic separation normal (opposite incoming motion, or +X when stationary); the regression test checks the resolved centre distance against the obstacle plus player radius. This improves recovery from invalid/overlapping spawn states but does not replace swept collision detection for high-speed tunnelling.
 
 Automated checks do **not** replace a browser playthrough. Camera framing, visual seams, jump feel at different approach speeds, mobile readability, and performance still require runtime inspection on the target game build before the course can be called visually validated. The CI suite verifies the shared vertical integration algorithm, but does not yet simulate the complete character controller with horizontal acceleration, coyote time, collision footprint, and actual landing surfaces.
