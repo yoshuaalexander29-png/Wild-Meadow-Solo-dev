@@ -27,8 +27,8 @@ export const COURSE_ROUTES: CourseRouteDefinition[] = [
     edge: 0.16,
     color: '#d8c69a',
     accent: '#e5b45a',
-    rings: [0.13, 0.405, 0.62, 0.94],
-    gaps: [[0.42, 0.48]],
+    rings: [0.13, 0.405, 0.49, 0.94],
+    gaps: [[0.425, 0.47]],
   },
   {
     name: 'Canopy Cut',
