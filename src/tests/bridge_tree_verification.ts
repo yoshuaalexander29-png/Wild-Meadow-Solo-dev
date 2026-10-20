@@ -752,6 +752,10 @@ console.log('\\nTest 20: Production controller run-speed jump across the authore
   const fps = 120;
   let jumpIssued = false;
   let takeoffSpeed = 0;
+  let takeoffFrame = -1;
+  let landingFrame = -1;
+  let takeoffPosition: THREE.Vector3 | null = null;
+  let landingPosition: THREE.Vector3 | null = null;
   let landedOnFarDeck = false;
   let furthestProgress = 0;
   const gapChord = Math.hypot(gapEnd.x - gapStart.x, gapEnd.z - gapStart.z);
@@ -760,6 +764,8 @@ console.log('\\nTest 20: Production controller run-speed jump across the authore
     const jump = !jumpIssued && remaining <= 0.08;
     if (jump) {
       jumpIssued = true;
+      takeoffFrame = frame;
+      takeoffPosition = root.position.clone();
       takeoffSpeed = Math.hypot(controller.velocity.x, controller.velocity.z);
     }
     controller.update(1 / fps, { x: 0, y: 0.85, sprint: false, jump }, cameraYaw, frame / fps);
@@ -767,11 +773,16 @@ console.log('\\nTest 20: Production controller run-speed jump across the authore
     furthestProgress = Math.max(furthestProgress, progress);
     if (jumpIssued && frame > 10 && controller.isGrounded && progress >= gapChord - 0.05) {
       landedOnFarDeck = controller.surfaceType === 'course';
+      landingFrame = frame;
+      landingPosition = root.position.clone();
       break;
     }
     if (jumpIssued && frame > 10 && controller.isGrounded && progress < gapChord - 0.05) break;
   }
-  console.log(`  Run-up input magnitude 0.85; measured takeoff speed ${takeoffSpeed.toFixed(2)}m/s; far-deck progress ${furthestProgress.toFixed(2)}m / ${gapChord.toFixed(2)}m; landed surface ${controller.surfaceType}`);
+  const centreTravel = takeoffPosition && landingPosition
+    ? Math.hypot(landingPosition.x - takeoffPosition.x, landingPosition.z - takeoffPosition.z)
+    : 0;
+  console.log(`  Run-up input magnitude 0.85; takeoff speed ${takeoffSpeed.toFixed(2)}m/s at (${takeoffPosition?.x.toFixed(2) ?? 'n/a'}, ${takeoffPosition?.z.toFixed(2) ?? 'n/a'}); landing (${landingPosition?.x.toFixed(2) ?? 'n/a'}, ${landingPosition?.z.toFixed(2) ?? 'n/a'}); centre travel ${centreTravel.toFixed(2)}m; flight ${takeoffFrame >= 0 && landingFrame >= 0 ? ((landingFrame - takeoffFrame) / fps).toFixed(3) : 'n/a'}s; gap chord ${gapChord.toFixed(2)}m; far-deck progress ${furthestProgress.toFixed(2)}m; surface ${controller.surfaceType}`);
   controller.dispose();
   if (!jumpIssued || !landedOnFarDeck) {
     console.error('FAIL: Actual controller did not complete the run-speed jump and land on the far elevated course deck.');
@@ -779,5 +790,47 @@ console.log('\\nTest 20: Production controller run-speed jump across the authore
   }
 }
 console.log('PASS: Actual controller crossed the authored gap from a run-speed approach and landed on the elevated course.');
+
+
+
+console.log('\\nTest 21: Missed gap lands safely on the lower meadow');
+{
+  const gap = mainRoute.gaps?.[0];
+  if (!gap) {
+    console.error('FAIL: Missing authored gap fixture.');
+    process.exit(1);
+  }
+  const curve = new THREE.CatmullRomCurve3(
+    mainRoute.points.map(([x, z], index) => new THREE.Vector3(x, mainRoute.lifts[index] ?? 0, z)),
+    false,
+    'centripetal',
+    0.35,
+  );
+  const gapStart = curve.getPointAt(gap[0]);
+  const tangent = curve.getTangentAt(gap[0]).setY(0).normalize();
+  const runUpStart = curve.getPointAt(Math.max(0, gap[0] - 4.0 / curve.getLength()));
+  const cameraYaw = Math.atan2(-tangent.x, -tangent.z);
+  const root = new THREE.Group();
+  root.position.set(runUpStart.x, getWalkableSurface(runUpStart.x, runUpStart.z).height, runUpStart.z);
+  const controller = createCharacterController(root, []);
+  let recoveredOnGround = false;
+  let recoveredProgress = 0;
+  for (let frame = 0; frame < 240; frame++) {
+    controller.update(1 / 120, { x: 0, y: 0.85, sprint: false, jump: false }, cameraYaw, frame / 120);
+    const progress = (root.position.x - gapStart.x) * tangent.x + (root.position.z - gapStart.z) * tangent.z;
+    if (progress > 0.8 && controller.isGrounded && controller.surfaceType !== 'course') {
+      recoveredOnGround = !controller.isDead;
+      recoveredProgress = progress;
+      break;
+    }
+  }
+  console.log(`  Missed-jump recovery: grounded=${controller.isGrounded}; surface=${controller.surfaceType}; alive=${!controller.isDead}; progress beyond gap start=${recoveredProgress.toFixed(2)}m`);
+  controller.dispose();
+  if (!recoveredOnGround) {
+    console.error('FAIL: Missing the jump did not resolve to a safe lower-ground landing.');
+    process.exit(1);
+  }
+}
+console.log('PASS: Missing the jump produces a safe lower-meadow landing instead of a death state. This does not prove rejoining the elevated course without respawning.');
 
 console.log('=== ALL AUDIT TESTS PASSED SUCCESSFULLY ===');
