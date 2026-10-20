@@ -1,6 +1,7 @@
 import {
   getTerrainHeight,
   getWalkableSurface,
+  getBridgeDeckHeight,
   isInsideWaterBody,
   OBSTACLES,
   BRIDGE_CENTER_X,
@@ -121,5 +122,39 @@ if (maxStepDiff > 0.35) {
 } else {
   console.log('PASS: Bridge deck elevation transitions smoothly from bank to bank without vertical snapping.');
 }
+
+
+ 
+// 5. Vertical ownership: an upper bridge deck must not magnetically catch a
+// character passing underneath, while a descending character above the deck may land.
+console.log('\nTest 5: Height-aware bridge support resolution');
+const bridgeX = BRIDGE_CENTER_X;
+const bridgeZ = BRIDGE_CENTER_Z;
+const deck = getBridgeDeckHeight(bridgeX, bridgeZ);
+if (!deck.onBridge) {
+  console.error('FAIL: Expected bridge center to be a valid deck sample.');
+  process.exit(1);
+}
+const belowDeck = getWalkableSurface(bridgeX, bridgeZ, {
+  characterY: deck.deckHeight - 1.0,
+  isGrounded: false,
+  verticalVelocity: 3.0,
+});
+const descendingOntoDeck = getWalkableSurface(bridgeX, bridgeZ, {
+  characterY: deck.deckHeight + 0.1,
+  isGrounded: false,
+  verticalVelocity: -2.0,
+});
+console.log(`  Under-deck query: ${belowDeck.surfaceType} at ${belowDeck.height.toFixed(2)}m; deck ${deck.deckHeight.toFixed(2)}m`);
+console.log(`  Descending query: ${descendingOntoDeck.surfaceType} at ${descendingOntoDeck.height.toFixed(2)}m`);
+if (belowDeck.surfaceType === 'wood' || belowDeck.height >= deck.deckHeight - 0.2) {
+  console.error('FAIL: Under-deck character was incorrectly resolved to the bridge surface.');
+  process.exit(1);
+}
+if (descendingOntoDeck.surfaceType !== 'wood') {
+  console.error('FAIL: Descending character above the bridge was not offered the deck as a landing surface.');
+  process.exit(1);
+}
+console.log('PASS: Surface support respects vertical position and descent direction.');
 
 console.log('\n=== ALL AUDIT TESTS PASSED SUCCESSFULLY ===');
