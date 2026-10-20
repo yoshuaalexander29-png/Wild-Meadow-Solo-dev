@@ -1174,20 +1174,24 @@ export function createPlatformerCourse(scene: THREE.Scene, seed = 42): Platforme
             if (characterY !== undefined) {
               const vy = verticalSpeed ?? 0;
 
-              // Case A: Character is grounded on this course deck
-              if (
-                isGrounded &&
-                (previousSurfaceId === seg.id || Math.abs(characterY - deckHeight) < 0.65)
-              ) {
-                return {
-                  height: deckHeight,
-                  normal: s.normal.clone(),
-                  surfaceType: 'wood',
-                  waterDepth: 0,
-                  isBridge: true,
-                  isDeepWater: false,
-                  slopeAngle: Math.abs(s.gradeAngle),
-                };
+              // A previous support ID is only a tie-breaker: it must not snap a
+              // character up from below an elevated deck.
+              if (isGrounded && Math.abs(characterY - deckHeight) < 0.65) {
+                if (
+                  !bestCandidate ||
+                  distSq < bestCandidate.distSq ||
+                  (previousSurfaceId === seg.id && bestCandidate.segmentId !== previousSurfaceId)
+                ) {
+                  bestCandidate = {
+                    height: deckHeight,
+                    normal: s.normal,
+                    segmentId: seg.id,
+                    feature: s.feature,
+                    distSq,
+                    crownSlope: Math.abs(s.gradeAngle),
+                  };
+                }
+                continue;
               }
 
               // Case B: Character is under the elevated deck (underpass headroom)
