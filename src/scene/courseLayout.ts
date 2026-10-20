@@ -4,6 +4,8 @@ import * as THREE from 'three';
 export interface CourseRouteDefinition {
   name: string;
   points: Array<[number, number]>;
+  /** Lift above the terrain at each corresponding route waypoint, in metres. */
+  lifts: number[];
   width: number;
   edge: number;
   color: string;
@@ -18,6 +20,7 @@ export const COURSE_ROUTES: CourseRouteDefinition[] = [
   {
     name: 'Meadow Mainline',
     points: [[5.5, -1.0], [9.5, -2.8], [14.5, -5.0], [19.5, -7.8], [24.5, -9.0], [29.5, -6.5], [32.0, -1.0], [33.0, 5.5], [31.5, 11.5], [29.0, 17.5], [24.0, 22.5], [18.0, 25.0], [12.0, 25.5], [7.0, 24.5]],
+    lifts: [0.12, 0.12, 0.24, 0.65, 0.92, 1.25, 1.5, 1.65, 1.5, 1.2, 0.85, 0.55, 0.3, 0.12],
     width: 2.9,
     edge: 0.16,
     color: '#d8c69a',
@@ -27,6 +30,7 @@ export const COURSE_ROUTES: CourseRouteDefinition[] = [
   {
     name: 'Canopy Cut',
     points: [[19.5, -7.8], [21.0, -4.8], [24.0, -2.0], [28.5, 0.8], [32.0, 5.5]],
+    lifts: [0.65, 0.82, 1.02, 1.25, 1.5],
     width: 2.25,
     edge: 0.13,
     color: '#a9c7b1',
@@ -40,12 +44,13 @@ interface RouteSample {
   z: number;
   tangentX: number;
   tangentZ: number;
+  lift: number;
   width: number;
 }
 
 const routeSamples = COURSE_ROUTES.map((route) => {
   const curve = new THREE.CatmullRomCurve3(
-    route.points.map(([x, z]) => new THREE.Vector3(x, 0, z)),
+    route.points.map(([x, z], index) => new THREE.Vector3(x, route.lifts[index] ?? 0, z)),
     false,
     'centripetal',
     0.35,
@@ -64,6 +69,7 @@ const routeSamples = COURSE_ROUTES.map((route) => {
       z: point.z,
       tangentX: dx / length,
       tangentZ: dz / length,
+      lift: point.y,
       width: route.width,
     };
   });
@@ -87,6 +93,7 @@ export function getCourseSurface(
 ): CourseSurface | null {
   let bestDistanceSq = Number.POSITIVE_INFINITY;
   let bestWidth = 0;
+  let bestLift = 0;
   for (const samples of routeSamples) {
     for (let i = 0; i < samples.length - 1; i++) {
       const a = samples[i];
@@ -105,6 +112,7 @@ export function getCourseSurface(
       if (distanceSq < bestDistanceSq) {
         bestDistanceSq = distanceSq;
         bestWidth = a.width;
+        bestLift = THREE.MathUtils.lerp(a.lift, b.lift, t);
       }
     }
   }
@@ -118,7 +126,7 @@ export function getCourseSurface(
   const hU = terrainHeightAt(x, z + eps);
   const normal = new THREE.Vector3(hL - hR, 2 * eps, hD - hU).normalize();
   return {
-    height: terrainH + COURSE_SURFACE_LIFT,
+    height: terrainH + bestLift + COURSE_SURFACE_LIFT,
     normal,
     surfaceType: 'course',
     waterDepth: 0,
