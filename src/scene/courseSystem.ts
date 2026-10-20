@@ -7,8 +7,8 @@ import { COURSE_ROUTES, COURSE_SAMPLE_COUNT, COURSE_SURFACE_LIFT, type CourseRou
  *
  * The route is deliberately a small, controlled palette and a shared spline
  * vocabulary: dark moss shoulder, warm ivory running lane, and restrained gold
- * guidance accents. All route meshes are generated from the same sampled curves
- * and owned/disposed here. This is visual navigation, not a physics surface.
+ * guidance accents. All route meshes and collision queries use the same authored route data;
+ * this module owns the render resources while courseLayout owns route geometry.
  */
 export interface MeadowCourse {
   dispose: () => void;
@@ -69,9 +69,9 @@ function makeGuideLine(curve: THREE.CatmullRomCurve3, width: number, color: stri
 
 export function createMeadowCourse(scene: THREE.Scene): MeadowCourse {
   const owned: THREE.Object3D[] = [];
-  const routes: Array<{ curve: THREE.CatmullRomCurve3; definition: MeadowRouteDefinition }> = [];
+  const routes: Array<{ curve: THREE.CatmullRomCurve3; definition: CourseRouteDefinition }> = [];
 
-  for (const definition of MEADOW_COURSE_ROUTES) {
+  for (const definition of COURSE_ROUTES) {
     const points = definition.points.map(([x, z]) =>
       new THREE.Vector3(x, getTerrainHeight(x, z), z)
     );
