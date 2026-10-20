@@ -76,7 +76,7 @@ const routeSamples = COURSE_ROUTES.map((route) => {
       tangentZ: dz / length,
       lift: point.y,
       width: route.width,
-      progress: t,
+      progress: index / COURSE_SAMPLE_COUNT,
       gaps: route.gaps ?? [],
     };
   });
