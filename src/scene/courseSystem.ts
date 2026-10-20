@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { getTerrainHeight } from './terrain';
+import { COURSE_COURSE_ROUTES, COURSE_SAMPLE_COUNT, COURSE_SURFACE_LIFT, type CourseCourseRouteDefinition } from './courseLayout';
 
 /**
  * Authored, terrain-following route dressing for the meadow.
@@ -12,37 +13,6 @@ import { getTerrainHeight } from './terrain';
 export interface MeadowCourse {
   dispose: () => void;
 }
-
-type RouteDefinition = {
-  name: string;
-  points: Array<[number, number]>;
-  width: number;
-  edge: number;
-  color: string;
-  accent: string;
-  rings: number[];
-};
-
-const ROUTES: RouteDefinition[] = [
-  {
-    name: 'Meadow Mainline',
-    points: [[5.5, -1.0], [9.5, -2.8], [14.5, -5.0], [19.5, -7.8], [24.5, -9.0], [29.5, -6.5], [32.0, -1.0], [33.0, 5.5], [31.5, 11.5], [29.0, 17.5], [24.0, 22.5], [18.0, 25.0], [12.0, 25.5], [7.0, 24.5]],
-    width: 2.9,
-    edge: 0.16,
-    color: '#d8c69a',
-    accent: '#e5b45a',
-    rings: [0.13, 0.62, 0.94],
-  },
-  {
-    name: 'Canopy Cut',
-    points: [[19.5, -7.8], [21.0, -4.8], [24.0, -2.0], [28.5, 0.8], [32.0, 5.5]],
-    width: 2.25,
-    edge: 0.13,
-    color: '#a9c7b1',
-    accent: '#e5b45a',
-    rings: [0.52],
-  },
-];
 
 const _up = new THREE.Vector3(0, 1, 0);
 
@@ -94,7 +64,7 @@ function makeRibbon(
 }
 
 function makeGuideLine(curve: THREE.CatmullRomCurve3, width: number, color: string): THREE.Mesh {
-  return makeRibbon(curve, width, 0.075, color, 150);
+  return makeRibbon(curve, width, COURSE_SURFACE_LIFT + 0.01, color, COURSE_SAMPLE_COUNT);
 }
 
 export function createMeadowCourse(scene: THREE.Scene): MeadowCourse {
@@ -109,12 +79,12 @@ export function createMeadowCourse(scene: THREE.Scene): MeadowCourse {
     routes.push({ curve, definition });
 
     // A subtle, darker shoulder gives the course a readable silhouette against grass.
-    const shoulder = makeRibbon(curve, definition.width + definition.edge * 2, 0.035, '#536b4b', 180);
+    const shoulder = makeRibbon(curve, definition.width + definition.edge * 2, COURSE_SURFACE_LIFT - 0.03, '#536b4b', COURSE_SAMPLE_COUNT);
     shoulder.name = definition.name + ' / moss shoulder';
     scene.add(shoulder);
     owned.push(shoulder);
 
-    const lane = makeRibbon(curve, definition.width, 0.065, definition.color, 180);
+    const lane = makeRibbon(curve, definition.width, COURSE_SURFACE_LIFT, definition.color, COURSE_SAMPLE_COUNT);
     lane.name = definition.name + ' / running lane';
     scene.add(lane);
     owned.push(lane);
