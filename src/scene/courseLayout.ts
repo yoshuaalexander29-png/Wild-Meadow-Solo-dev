@@ -30,7 +30,7 @@ export const COURSE_ROUTES: CourseRouteDefinition[] = [
   {
     name: 'Canopy Cut',
     points: [[19.5, -7.8], [21.0, -4.8], [24.0, -2.0], [28.5, 0.8], [32.0, 5.5]],
-    lifts: [0.65, 0.82, 1.02, 1.25, 1.5],
+    lifts: [0.65, 0.82, 1.02, 1.25, 1.65],
     width: 2.25,
     edge: 0.13,
     color: '#a9c7b1',
