@@ -64,6 +64,13 @@ export function advanceVerticalMotion(velocity: number, deltaSeconds: number): V
   return { velocity: nextVelocity, displacement };
 }
 
+/** Exponential response alpha for a time-constant expressed as inverse seconds. */
+export function getResponseAlpha(responsePerSecond: number, deltaSeconds: number): number {
+  if (!Number.isFinite(responsePerSecond) || responsePerSecond <= 0
+    || !Number.isFinite(deltaSeconds) || deltaSeconds <= 0) return 0;
+  return 1 - Math.exp(-responsePerSecond * deltaSeconds);
+}
+
 export interface JumpAssistTimers {
   coyoteTimer: number;
   jumpBufferTimer: number;
