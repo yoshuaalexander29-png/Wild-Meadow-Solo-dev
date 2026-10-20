@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import * as THREE from 'three';
 import {
   generateCourseData,
@@ -23,6 +23,39 @@ import {
 import { createDustSystem, canEmitSprintDust } from '../scene/dustSystem';
 import { createThirdPersonCamera } from '../scene/thirdPersonCamera';
 import { createHeroKnight } from '../scene/heroCharacter';
+
+// Three.js CanvasTexture only needs a canvas-like image object for these headless
+// lifecycle/material tests. Real pixel output remains a browser visual-QA concern.
+function createHeadlessCanvas(): HTMLCanvasElement {
+  const gradient = { addColorStop: vi.fn() };
+  const context = {
+    clearRect: vi.fn(),
+    createRadialGradient: vi.fn(() => gradient),
+    fillRect: vi.fn(),
+    beginPath: vi.fn(),
+    arc: vi.fn(),
+    fill: vi.fn(),
+    fillStyle: '',
+  };
+  return {
+    width: 0,
+    height: 0,
+    getContext: vi.fn(() => context),
+  } as unknown as HTMLCanvasElement;
+}
+
+beforeEach(() => {
+  vi.stubGlobal('document', {
+    createElement: vi.fn((tagName: string) => {
+      if (tagName !== 'canvas') throw new Error(`Unsupported headless element: ${tagName}`);
+      return createHeadlessCanvas();
+    }),
+  });
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe('Wild Meadow Platformer Course & Core Systems', () => {
   // 1. Determinism and Variation
