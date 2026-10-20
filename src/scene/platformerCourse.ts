@@ -1287,6 +1287,16 @@ export function createPlatformerCourse(scene: THREE.Scene, seed = 42): Platforme
       };
     }
 
+    // Explicit fork node metadata is more reliable than sample labels: the nearest
+    // sample can belong to the run-up or the first ramp even inside the junction.
+    const splitNode = data.nodes.find((node) => node.feature === 'split');
+    if (
+      splitNode &&
+      Math.hypot(charPos.x - splitNode.position.x, charPos.z - splitNode.position.z) < 2.1
+    ) {
+      currentFeature = 'split';
+    }
+
     // Dynamic anticipation based on upcoming course landmark
     const lookAheadDist = THREE.MathUtils.clamp(speed * 0.45, 1.8, 4.2);
 
