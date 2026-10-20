@@ -85,6 +85,7 @@ export function createGroundContactVisualizer(scene: THREE.Scene): ContactVisual
     stone: '#aaaaaa',
     wood: '#dd7733',
     water: '#00ccff',
+    course: '#d8c69a',
   };
 
   return {
