@@ -20,6 +20,8 @@ export interface CharacterController {
   position: THREE.Vector3;
   velocity: THREE.Vector3;
   speed: number;
+  /** Current vertical physics velocity in world units per second. */
+  verticalSpeed: number;
   isGrounded: boolean;
   isDead: boolean;
   surfaceType: SurfaceType;
@@ -322,6 +324,9 @@ export function createCharacterController(
     velocity: _currentVel,
     get speed() {
       return currentSpeed;
+    },
+    get verticalSpeed() {
+      return verticalVelocity;
     },
     get isGrounded() {
       return isGrounded;
