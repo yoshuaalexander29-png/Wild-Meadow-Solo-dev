@@ -318,8 +318,19 @@ if (gapSurface !== null) {
   console.error('FAIL: Collision resolver still reports a walkable course surface inside the visual gap.');
   process.exit(1);
 }
-if (!shortcutRoute.points.some(([x, z]) => Math.hypot(x - gapCenter.x, z - gapCenter.z) > 2.5)) {
-  console.error('FAIL: Shortcut does not spatially bypass the mainline gap.');
+const shortcutCurve = new THREE.CatmullRomCurve3(
+  shortcutRoute.points.map(([x, z], index) => new THREE.Vector3(x, shortcutRoute.lifts[index] ?? 0, z)),
+  false,
+  'centripetal',
+  0.35,
+);
+let nearestShortcutDistance = Number.POSITIVE_INFINITY;
+for (let sample = 0; sample <= 120; sample++) {
+  const point = shortcutCurve.getPointAt(sample / 120);
+  nearestShortcutDistance = Math.min(nearestShortcutDistance, Math.hypot(point.x - gapCenter.x, point.z - gapCenter.z));
+}
+if (nearestShortcutDistance <= shortcutRoute.width * 0.5 + 0.25) {
+  console.error('FAIL: Shortcut passes too close to the mainline gap instead of bypassing it.');
   process.exit(1);
 }
 console.log('PASS: Gap is physically absent from the shared support query and a separate route bypasses it.');
