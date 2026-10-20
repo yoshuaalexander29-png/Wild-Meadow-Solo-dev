@@ -160,6 +160,7 @@ export function createMeadowCourse(scene: THREE.Scene): MeadowCourse {
   planks.receiveShadow = true;
   const plankPosition = new THREE.Vector3();
   const plankTangent = new THREE.Vector3();
+  const plankPoint = new THREE.Vector3();
   const plankScale = new THREE.Vector3();
   const plankRotation = new THREE.Quaternion();
   const plankMatrix = new THREE.Matrix4();
@@ -168,14 +169,14 @@ export function createMeadowCourse(scene: THREE.Scene): MeadowCourse {
     for (let t = 0.02; t < 0.99 && plankIndex < 512; t += 0.032) {
       const progress = t;
       if ((definition.gaps ?? []).some(([start, end]) => progress >= start && progress <= end)) continue;
-      curve.getPointAt(t, _supportPoint);
-      if (_supportPoint.y < 0.42) continue;
+      curve.getPointAt(t, plankPoint);
+      if (plankPoint.y < 0.42) continue;
       curve.getTangentAt(t, plankTangent).setY(0).normalize();
-      const terrainY = getTerrainHeight(_supportPoint.x, _supportPoint.z);
+      const terrainY = getTerrainHeight(plankPoint.x, plankPoint.z);
       plankPosition.set(
-        _supportPoint.x,
-        terrainY + _supportPoint.y + 0.005,
-        _supportPoint.z,
+        plankPoint.x,
+        terrainY + plankPoint.y + 0.005,
+        plankPoint.z,
       );
       plankRotation.setFromUnitVectors(_up.clone().set(0, 0, 1), plankTangent);
       plankScale.set(definition.width + definition.edge * 1.25, 1, 1);
