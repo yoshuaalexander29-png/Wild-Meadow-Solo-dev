@@ -564,7 +564,7 @@ function createCourseVisuals(scene: THREE.Scene): { dispose: () => void } {
       }
       if (i < divisions) {
         const a = i * 2;
-        indices.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+        indices.push(a, a + 2, a + 1, a + 1, a + 2, a + 3);
       }
     }
     const geometry = new THREE.BufferGeometry();
