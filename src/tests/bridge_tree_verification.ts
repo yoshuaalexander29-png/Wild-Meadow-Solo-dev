@@ -721,4 +721,59 @@ console.log('PASS: A jump press buffered during descent is consumed by the live 
 
 
 
+
+
+console.log('\\nTest 20: Production controller run-speed jump across the authored gap');
+{
+  const gap = mainRoute.gaps?.[0];
+  if (!gap) {
+    console.error('FAIL: Missing authored gap fixture.');
+    process.exit(1);
+  }
+  const curve = new THREE.CatmullRomCurve3(
+    mainRoute.points.map(([x, z], index) => new THREE.Vector3(x, mainRoute.lifts[index] ?? 0, z)),
+    false,
+    'centripetal',
+    0.35,
+  );
+  const curveLength = curve.getLength();
+  const gapStart = curve.getPointAt(gap[0]);
+  const gapEnd = curve.getPointAt(gap[1]);
+  const tangent = curve.getTangentAt(gap[0]).setY(0).normalize();
+  const runUpStart = curve.getPointAt(Math.max(0, gap[0] - 4.0 / curveLength));
+  const cameraYaw = Math.atan2(-tangent.x, -tangent.z);
+  const root = new THREE.Group();
+  root.position.set(runUpStart.x, getWalkableSurface(runUpStart.x, runUpStart.z).height, runUpStart.z);
+  const controller = createCharacterController(root, []);
+  const fps = 120;
+  let jumpIssued = false;
+  let takeoffSpeed = 0;
+  let landedOnFarDeck = false;
+  let furthestProgress = 0;
+  const gapChord = Math.hypot(gapEnd.x - gapStart.x, gapEnd.z - gapStart.z);
+  for (let frame = 0; frame < 240; frame++) {
+    const remaining = (gapStart.x - root.position.x) * tangent.x + (gapStart.z - root.position.z) * tangent.z;
+    const jump = !jumpIssued && remaining <= 0.08;
+    if (jump) {
+      jumpIssued = true;
+      takeoffSpeed = Math.hypot(controller.velocity.x, controller.velocity.z);
+    }
+    controller.update(1 / fps, { x: 0, y: 0.85, sprint: false, jump }, cameraYaw, frame / fps);
+    const progress = (root.position.x - gapStart.x) * tangent.x + (root.position.z - gapStart.z) * tangent.z;
+    furthestProgress = Math.max(furthestProgress, progress);
+    if (jumpIssued && frame > 10 && controller.isGrounded && progress >= gapChord - 0.05) {
+      landedOnFarDeck = controller.surfaceType === 'course';
+      break;
+    }
+    if (jumpIssued && frame > 10 && controller.isGrounded && progress < gapChord - 0.05) break;
+  }
+  console.log(`  Run-up input magnitude 0.85; measured takeoff speed ${takeoffSpeed.toFixed(2)}m/s; far-deck progress ${furthestProgress.toFixed(2)}m / ${gapChord.toFixed(2)}m; landed surface ${controller.surfaceType}`);
+  controller.dispose();
+  if (!jumpIssued || !landedOnFarDeck) {
+    console.error('FAIL: Actual controller did not complete the run-speed jump and land on the far elevated course deck.');
+    process.exit(1);
+  }
+}
+console.log('PASS: Actual controller crossed the authored gap from a run-speed approach and landed on the elevated course.');
+
 console.log('=== ALL AUDIT TESTS PASSED SUCCESSFULLY ===');
