@@ -259,6 +259,10 @@ export function createMeadowCourse(scene: THREE.Scene): MeadowCourse {
         object.traverse((child) => {
           const mesh = child as THREE.Mesh;
           if (!mesh.isMesh) return;
+          // InstancedMesh owns GPU-side instance buffers in addition to its shared geometry.
+          if ((mesh as THREE.InstancedMesh).isInstancedMesh) {
+            (mesh as THREE.InstancedMesh).dispose();
+          }
           geometries.add(mesh.geometry);
           for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
             materials.add(material);
