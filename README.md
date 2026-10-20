@@ -72,3 +72,28 @@ npx --yes tsx src/tests/bridge_tree_verification.ts  # Terrain, bridge, route, g
 ## Asset Licenses
 
 - **Knight Character Model (`Knight_Male.glb`):** Quaternius under **CC0 1.0 Universal** (Public Domain).
+
+
+## Authored course and verification
+
+The current course is authored from the shared route definitions in `src/scene/courseLayout.ts`. Rendering, support-height queries, and automated checks consume that same data.
+
+- **Mainline:** a warm limestone lane with restrained brass guidance, an elevated profile, and an optional jump gap.
+- **Canopy Cut:** a shorter, muted sage route that bypasses the gap and rejoins the mainline.
+- **Physical consistency:** lane width, lift profile, gap intervals, support normals, and merge elevations are queried from the same route definition. The visual gap and collision gap are both driven by the shared gap interval.
+- **Resource discipline:** route ribbons and guidance rings have explicit disposal; elevated timber supports are instanced to avoid one draw call per support.
+- **Palette discipline:** limestone, moss, sage, and brass are reused across the lane, edging, markers, and supports rather than introducing unrelated neon colors.
+
+### Verification
+
+The Node 20 GitHub Actions workflow runs:
+
+```sh
+npm run lint
+npx --yes tsx src/tests/bridge_tree_verification.ts
+npm run build
+```
+
+The verification script checks bridge support, course entry distance, sampled obstacle and brook clearance, shortcut length, ramp grade limits, ramp-aware support normals, and the open collision gap.
+
+Automated checks do **not** replace a browser playthrough. Camera framing, visual seams, jump feel at different approach speeds, mobile readability, and performance still require runtime inspection on the target game build before the course can be called visually validated.
