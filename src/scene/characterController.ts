@@ -205,7 +205,7 @@ export function createCharacterController(
     if (isDead || isRespawning || isRolling) return;
 
     if (!isGrounded && coyoteTimer <= 0) {
-      jumpBufferTimer = 0.2;
+      jumpBufferTimer = GAME_FEEL.jumpBufferSeconds;
       return;
     }
 
