@@ -370,7 +370,30 @@ if (lookingTowardGap <= 0.1 || lookingAway !== 0) {
 console.log('PASS: Camera cue increases look-ahead only when approaching the jump with route alignment.');
 
 
-console.log('\nTest 11: Shared jump trajectory across frame rates and frame hitches');
+console.log('\nTest 11: Height-gated elevated course support');
+const elevatedProbe = getCourseSurface(24.5, -9.0, getTerrainHeight);
+if (!elevatedProbe) {
+  console.error('FAIL: Elevated course probe has no shared support surface.');
+  process.exit(1);
+}
+const underDeck = getWalkableSurface(24.5, -9.0, {
+  characterY: elevatedProbe.height - 1.0,
+  isGrounded: false,
+  verticalVelocity: 3.0,
+});
+const descendingAboveDeck = getWalkableSurface(24.5, -9.0, {
+  characterY: elevatedProbe.height + 0.15,
+  isGrounded: false,
+  verticalVelocity: -2.0,
+});
+console.log(`  Under-deck support: ${underDeck.surfaceType}; descending support: ${descendingAboveDeck.surfaceType}`);
+if (underDeck.surfaceType === 'course' || descendingAboveDeck.surfaceType !== 'course') {
+  console.error('FAIL: Elevated route either pulls a character upward through its deck or fails to catch a descending landing.');
+  process.exit(1);
+}
+console.log('PASS: Course deck support is one-sided and height-aware.');
+
+console.log('\nTest 12: Shared jump trajectory across frame rates and frame hitches');
 function simulateJump(frameDelta: number) {
   let y = 0;
   let velocity = JUMP_INITIAL_SPEED;
