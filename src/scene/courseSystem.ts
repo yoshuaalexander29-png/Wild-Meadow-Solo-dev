@@ -118,6 +118,60 @@ export function createMeadowCourse(scene: THREE.Scene): MeadowCourse {
     }
   }
 
+  // Instanced timber supports make elevated sections read as real structures
+  // while keeping their draw-call cost constant as the course sampling is refined.
+  const supportGeometry = new THREE.CylinderGeometry(0.075, 0.12, 1, 8);
+  const supportMaterial = new THREE.MeshStandardMaterial({
+    color: '#70543a',
+    roughness: 0.88,
+    metalness: 0,
+  });
+  const supportCapacity = COURSE_ROUTES.length * 20;
+  const supports = new THREE.InstancedMesh(supportGeometry, supportMaterial, supportCapacity);
+  supports.name = 'MeadowCourse_InstancedTimberSupports';
+  supports.castShadow = true;
+  supports.receiveShadow = true;
+  const _supportPosition = new THREE.Vector3();
+  const _supportScale = new THREE.Vector3(1, 1, 1);
+  const _supportRotation = new THREE.Quaternion();
+  const _supportMatrix = new THREE.Matrix4();
+  const _supportPoint = new THREE.Vector3();
+  const _supportTangent = new THREE.Vector3();
+  const _supportSide = new THREE.Vector3();
+  let supportIndex = 0;
+  for (const { curve, definition } of routes) {
+    for (let i = 1; i < 10; i++) {
+      const t = i / 10;
+      curve.getPointAt(t, _supportPoint);
+      if (_supportPoint.y < 0.48) continue;
+      curve.getTangentAt(t, _supportTangent).setY(0).normalize();
+      _supportSide.crossVectors(_up, _supportTangent).normalize();
+      const terrainY = getTerrainHeight(_supportPoint.x, _supportPoint.z);
+      const postHeight = _supportPoint.y + COURSE_SURFACE_LIFT - 0.06;
+      if (postHeight <= 0.1) continue;
+      for (const side of [-1, 1]) {
+        if (supportIndex >= supportCapacity) break;
+        _supportPosition.set(
+          _supportPoint.x + _supportSide.x * (definition.width * 0.5 - 0.22) * side,
+          terrainY + postHeight * 0.5,
+          _supportPoint.z + _supportSide.z * (definition.width * 0.5 - 0.22) * side,
+        );
+        _supportScale.set(1, postHeight, 1);
+        _supportMatrix.compose(_supportPosition, _supportRotation, _supportScale);
+        supports.setMatrixAt(supportIndex++, _supportMatrix);
+      }
+    }
+  }
+  supports.count = supportIndex;
+  supports.instanceMatrix.needsUpdate = true;
+  if (supportIndex > 0) {
+    scene.add(supports);
+    owned.push(supports);
+  } else {
+    supportGeometry.dispose();
+    supportMaterial.dispose();
+  }
+
   let disposed = false;
   return {
     dispose() {
