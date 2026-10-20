@@ -13,7 +13,7 @@ import {
   BRIDGE_ROT_Y,
   BRIDGE_HALF_LENGTH,
 } from '../scene/terrain';
-import { COURSE_ROUTES } from '../scene/courseLayout';
+import { COURSE_ROUTES, getCourseSurface } from '../scene/courseLayout';
 import {
   calculateBridgeCorners,
   SPIRITED_AWAY_BRIDGE_LAYOUT,
@@ -234,5 +234,34 @@ for (const route of COURSE_ROUTES) {
   }
 }
 console.log('PASS: Both routes have sampled obstacle/brook clearance, a nearby entry, and a shorter shortcut.');
+
+
+console.log('\nTest 8: Course ramp profile and support normal');
+for (const route of COURSE_ROUTES) {
+  if (route.lifts.length !== route.points.length || route.lifts.some((lift) => !Number.isFinite(lift) || lift < 0)) {
+    console.error(`FAIL: ${route.name} has invalid lift metadata.`);
+    process.exit(1);
+  }
+  for (let i = 1; i < route.points.length; i++) {
+    const previous = route.points[i - 1];
+    const current = route.points[i];
+    const horizontalDistance = Math.hypot(current[0] - previous[0], current[1] - previous[1]);
+    const gradeDegrees = Math.atan2(Math.abs(route.lifts[i] - route.lifts[i - 1]), Math.max(horizontalDistance, 0.001)) * 180 / Math.PI;
+    if (gradeDegrees > 12) {
+      console.error(`FAIL: ${route.name} exceeds the 12-degree authored grade budget (${gradeDegrees.toFixed(1)}°).`);
+      process.exit(1);
+    }
+  }
+}
+const rampSurface = getCourseSurface(24.5, -9.0, getTerrainHeight);
+if (!rampSurface || rampSurface.surfaceType !== 'course' || rampSurface.height < getTerrainHeight(24.5, -9.0) + 0.8) {
+  console.error('FAIL: Raised route section is not represented by the shared course support query.');
+  process.exit(1);
+}
+if (rampSurface.slopeAngle < 0.01) {
+  console.error('FAIL: Raised course section did not produce a ramp-aware support normal.');
+  process.exit(1);
+}
+console.log(`PASS: Course lift profiles are valid; sampled waypoint grades stay under 12°; ramp support slope is ${(rampSurface.slopeAngle * 180 / Math.PI).toFixed(1)}°.`);
 
 console.log('\n=== ALL AUDIT TESTS PASSED SUCCESSFULLY ===');
