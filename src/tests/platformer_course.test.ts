@@ -40,9 +40,12 @@ describe('Wild Meadow Platformer Course & Core Systems', () => {
       expect(courseA1.nodes[i].position.z).toBeCloseTo(courseA2.nodes[i].position.z, 5);
     }
 
-    // Different seed produces controlled variations within bounds
-    expect(courseA1.takeoffPoint.x).not.toBe(courseB.takeoffPoint.x);
-    expect(Math.abs(courseA1.takeoffPoint.x - courseB.takeoffPoint.x)).toBeLessThan(1.5);
+    // Different seeds vary authored, safety-constrained course nodes. The takeoff
+    // X coordinate is intentionally fixed to preserve the validated jump corridor.
+    const splitA = courseA1.nodes.find((node) => node.id === 'split')!;
+    const splitB = courseB.nodes.find((node) => node.id === 'split')!;
+    expect(splitA.position.z).not.toBe(splitB.position.z);
+    expect(Math.abs(splitA.position.z - splitB.position.z)).toBeLessThanOrEqual(0.4);
   });
 
   // 2. Topology and Connectivity
@@ -52,7 +55,7 @@ describe('Wild Meadow Platformer Course & Core Systems', () => {
 
     expect(segmentIds).toContain('seg_runup');
     expect(segmentIds).toContain('seg_skill_ramp');
-    expect(segmentIds).toContain('seg_skill_gap');
+    expect(segmentIds).toContain('seg_air_gap');
     expect(segmentIds).toContain('seg_skill_banked');
     expect(segmentIds).toContain('seg_safe_route');
     expect(segmentIds).toContain('seg_return_finish');
