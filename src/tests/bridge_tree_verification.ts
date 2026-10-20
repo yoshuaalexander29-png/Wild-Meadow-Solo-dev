@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {
   getTerrainHeight,
   getWalkableSurface,
+  resolveCollision,
   getDistanceToStream,
   STREAM_BANK_WIDTH,
   SAFE_RESPAWN,
@@ -411,7 +412,23 @@ if (underDeck.surfaceType === 'course' || descendingAboveDeck.surfaceType !== 'c
 }
 console.log('PASS: Course deck support is one-sided and height-aware.');
 
-console.log('\nTest 13: Full-controller horizontal motion kernel and response timing');
+console.log('\nTest 13: Collision footprint, exact-centre recovery and meadow boundary');
+const exactCentreCollision = resolveCollision(-16, -18, 0.42, 0, 0);
+const recoveredDistance = Math.hypot(exactCentreCollision.x + 16, exactCentreCollision.z + 18);
+if (!exactCentreCollision.collided || recoveredDistance < 2.3 + 0.42 - 1e-6) {
+  console.error(`FAIL: Exact-centre obstacle overlap was not resolved (distance ${recoveredDistance.toFixed(3)}m).`);
+  process.exit(1);
+}
+const boundaryCollision = resolveCollision(49, 0, 0.42, 4, 0);
+const boundaryRadius = Math.hypot(boundaryCollision.x, boundaryCollision.z);
+if (!boundaryCollision.collided || boundaryRadius > 48.000001 || boundaryCollision.slideVelX > 0.000001) {
+  console.error('FAIL: Perimeter collision did not clamp position and remove outward velocity.');
+  process.exit(1);
+}
+console.log(`  Exact-centre collider recovery: ${recoveredDistance.toFixed(3)}m from obstacle centre; boundary radius: ${boundaryRadius.toFixed(3)}m`);
+console.log('PASS: Collision resolution handles exact-centre overlap and outward boundary movement.');
+
+console.log('\nTest 14: Full-controller horizontal motion kernel and response timing');
 function simulateHorizontalMotion(
   startX: number,
   startZ: number,
@@ -455,7 +472,7 @@ console.log(`  0.5s braking from 7m/s at 30/60/120 FPS: ${brakingResults.map(v =
 console.log(`  1s air steering to 7m/s at 30/60/120 FPS: ${airSteerResults.map(v => v.toFixed(4)).join(' / ')} m/s`);
 console.log('PASS: live-controller horizontal response kernel is deterministic across tested render rates.');
 
-console.log('\nTest 14: Centralized game-feel values and jump-assist timing');
+console.log('\nTest 15: Centralized game-feel values and jump-assist timing');
 if (GAME_FEEL.coyoteTimeSeconds !== 0.16 || GAME_FEEL.jumpBufferSeconds !== 0.2) {
   console.error('FAIL: Documented coyote/buffer timing changed unexpectedly.');
   process.exit(1);
@@ -494,7 +511,7 @@ console.log(`  Coyote: ${GAME_FEEL.coyoteTimeSeconds.toFixed(2)}s; buffer: ${GAM
 console.log(`  One-second air-steering speed at 30/60/120 FPS: ${response30.toFixed(4)} / ${response60.toFixed(4)} / ${response120.toFixed(4)} m/s`);
 console.log('PASS: Coyote/buffer clocks and the controller movement-response helper meet their timing contracts.');
 
-console.log('\nTest 15: Shared jump trajectory across frame rates and frame hitches');
+console.log('\nTest 16: Shared jump trajectory across frame rates and frame hitches');
 function simulateJump(frameDelta: number) {
   let y = 0;
   let velocity: number = GAME_FEEL.jumpInitialSpeed;
@@ -534,7 +551,7 @@ if (jumpRuns.find((run) => run.label === '30 FPS')!.distance < 4.0) {
 }
 console.log('PASS: Gameplay and test share the same bounded-substep integrator; jump range remains within the current tolerance.');
 
-console.log('\nTest 16: Course scene cleanup is complete and idempotent');
+console.log('\nTest 17: Course scene cleanup is complete and idempotent');
 const lifecycleScene = new THREE.Scene();
 const lifecycleCourse = createMeadowCourse(lifecycleScene);
 const ownedObjectCount = lifecycleScene.children.length;
