@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { getCourseSurface } from './courseLayout';
 
 // -------------------------------------------------------------
 // Unified Ghibli Countryside Terrain & Spatial Authoritative System
@@ -163,7 +164,7 @@ export function getDistanceToPath(x: number, z: number): number {
 }
 
 // Surface types for footstep acoustic feedback, particle response, and hazard detection
-export type SurfaceType = 'grass' | 'dirt' | 'stone' | 'wood' | 'water';
+export type SurfaceType = 'grass' | 'dirt' | 'stone' | 'wood' | 'water' | 'course';
 
 export interface WalkableSurface {
   height: number;
@@ -323,6 +324,18 @@ export function getWalkableSurface(
         slopeAngle: bridgeEval.crown > 0.02 ? 0.02 : 0,
       };
     }
+  }
+
+  // The authored running lane is queried from the same route data as its mesh.
+  // Height gating prevents an airborne character beneath the lane from snapping upward.
+  const courseEval = getCourseSurface(x, z, getTerrainHeight);
+  if (courseEval) {
+    const mayUseCourse = !context ||
+      (context.isGrounded && context.characterY >= courseEval.height - 0.48) ||
+      (!context.isGrounded &&
+        context.verticalVelocity <= 0 &&
+        context.characterY >= courseEval.height - 0.08);
+    if (mayUseCourse) return courseEval;
   }
 
   // 2. Check Natural Stepping Stones
