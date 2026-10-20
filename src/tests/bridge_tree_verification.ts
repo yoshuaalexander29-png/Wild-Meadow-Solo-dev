@@ -620,7 +620,7 @@ console.log(`PASS: ${ownedObjectCount} course scene objects removed; repeated di
 
 
 
-console.log('\\nTest 20: Authored gap reach envelope (vertical production integrator + route geometry)');
+console.log('\nTest 20: Authored gap reach envelope (vertical production integrator + route geometry)');
 const reachGap = mainRoute.gaps?.[0];
 if (!reachGap) {
   console.error('FAIL: No authored mainline gap to measure.');
@@ -664,7 +664,7 @@ if (reachTime >= 2.0 || !(walkReach < reachDistance) || runReach < reachDistance
 }
 console.log('PASS: Authored gap fits the nominal run/sprint reach envelope; walking speed is intentionally insufficient. This is a vertical-integrator/constant-horizontal-speed estimate, not an end-to-end controller jump.');
 
-console.log('\\nTest 21: Live production controller update at 30/60/120 FPS');
+console.log('\nTest 21: Live production controller update at 30/60/120 FPS');
 const controllerRuns: Array<{ fps: number; travel: number; stopSpeed: number }> = [];
 for (const fps of [30, 60, 120]) {
   const root = new THREE.Group();
@@ -694,7 +694,7 @@ if (controllerTravelSpread > 0.25 || controllerRuns.some(r => r.travel < 5.0 || 
 }
 console.log('PASS: The actual character-controller update path accelerates and brakes consistently at 30/60/120 FPS in an obstacle-free terrain fixture.');
 
-console.log('\\nTest 22: Production controller buffered jump survives until landing');
+console.log('\nTest 22: Production controller buffered jump survives until landing');
 {
   const root = new THREE.Group();
   root.position.set(28, getWalkableSurface(28, 28).height, 28);
@@ -727,7 +727,7 @@ console.log('PASS: A jump press buffered during descent is consumed by the live 
 
 
 
-console.log('\\nTest 23: Production controller run-speed jump across the authored gap');
+console.log('\nTest 23: Production controller run-speed jump across the authored gap');
 {
   const gap = mainRoute.gaps?.[0];
   if (!gap) {
@@ -793,7 +793,7 @@ console.log('PASS: Actual controller crossed the authored gap from a run-speed a
 
 
 
-console.log('\\nTest 24: Missed gap lands safely on the lower meadow');
+console.log('\nTest 24: Missed gap lands safely on the lower meadow');
 {
   const gap = mainRoute.gaps?.[0];
   if (!gap) {
