@@ -13,7 +13,7 @@ import {
   BRIDGE_ROT_Y,
   BRIDGE_HALF_LENGTH,
 } from '../scene/terrain';
-import { COURSE_ROUTES, getCourseSurface, getCourseAnticipation } from '../scene/courseLayout';
+import { COURSE_ROUTES, getCourseSurface, getCourseAnticipation, getCourseBoardwalkOffset, COURSE_SURFACE_LIFT } from '../scene/courseLayout';
 import { advanceVerticalMotion, JUMP_INITIAL_SPEED } from '../scene/characterController';
 import {
   calculateBridgeCorners,
@@ -370,7 +370,24 @@ if (lookingTowardGap <= 0.1 || lookingAway !== 0) {
 console.log('PASS: Camera cue increases look-ahead only when approaching the jump with route alignment.');
 
 
-console.log('\nTest 11: Height-gated elevated course support');
+console.log('\nTest 11: Rendered boardwalk and support-query height agreement');
+const boardwalkLift = 0.65;
+const boardwalkProbe = getCourseSurface(24.5, -9.0, getTerrainHeight);
+const expectedBoardwalkOffset = getCourseBoardwalkOffset(boardwalkLift);
+if (!boardwalkProbe || expectedBoardwalkOffset <= 0) {
+  console.error('FAIL: Elevated boardwalk fixture is missing.');
+  process.exit(1);
+}
+const boardwalkBaseHeight = getTerrainHeight(24.5, -9.0) + boardwalkLift + COURSE_SURFACE_LIFT;
+const boardwalkHeightError = Math.abs(boardwalkProbe.height - (boardwalkBaseHeight + expectedBoardwalkOffset));
+console.log(`  Expected boardwalk offset: ${expectedBoardwalkOffset.toFixed(3)}m; height error: ${boardwalkHeightError.toFixed(4)}m`);
+if (boardwalkHeightError > 0.001) {
+  console.error('FAIL: Boardwalk support query disagrees with the authored deck height.');
+  process.exit(1);
+}
+console.log('PASS: Rendered boardwalk and collision support share the same deck-height formula.');
+
+console.log('\nTest 12: Height-gated elevated course support');
 const elevatedProbe = getCourseSurface(24.5, -9.0, getTerrainHeight);
 if (!elevatedProbe) {
   console.error('FAIL: Elevated course probe has no shared support surface.');
@@ -393,7 +410,7 @@ if (underDeck.surfaceType === 'course' || descendingAboveDeck.surfaceType !== 'c
 }
 console.log('PASS: Course deck support is one-sided and height-aware.');
 
-console.log('\nTest 12: Shared jump trajectory across frame rates and frame hitches');
+console.log('\nTest 13: Shared jump trajectory across frame rates and frame hitches');
 function simulateJump(frameDelta: number) {
   let y = 0;
   let velocity = JUMP_INITIAL_SPEED;
