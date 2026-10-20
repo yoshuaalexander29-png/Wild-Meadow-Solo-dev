@@ -13,7 +13,7 @@ import {
   BRIDGE_ROT_Y,
   BRIDGE_HALF_LENGTH,
 } from '../scene/terrain';
-import { COURSE_ROUTES, getCourseSurface } from '../scene/courseLayout';
+import { COURSE_ROUTES, getCourseSurface, getCourseAnticipation } from '../scene/courseLayout';
 import {
   calculateBridgeCorners,
   SPIRITED_AWAY_BRIDGE_LAYOUT,
@@ -347,5 +347,25 @@ if (nearestShortcutDistance <= shortcutRoute.width * 0.5 + 0.25) {
   process.exit(1);
 }
 console.log('PASS: Gap is physically absent from the shared support query and a separate route bypasses it.');
+
+
+ 
+console.log('\nTest 10: Directional camera anticipation');
+const approachPoint = mainCurveWithLift.getPointAt(Math.max(0, jumpGap[0] - 0.015));
+const approachTangent = mainCurveWithLift.getTangentAt(Math.max(0, jumpGap[0] - 0.015)).setY(0).normalize();
+const anticipationStartX = approachPoint.x - approachTangent.x * 6.0;
+const anticipationStartZ = approachPoint.z - approachTangent.z * 6.0;
+const lookingTowardGap = getCourseAnticipation(
+  anticipationStartX, anticipationStartZ, approachTangent.x * 7, approachTangent.z * 7,
+);
+const lookingAway = getCourseAnticipation(
+  anticipationStartX, anticipationStartZ, -approachTangent.x * 7, -approachTangent.z * 7,
+);
+console.log(`  Toward-gap cue: ${lookingTowardGap.toFixed(2)}; away-from-gap cue: ${lookingAway.toFixed(2)}`);
+if (lookingTowardGap <= 0.1 || lookingAway !== 0) {
+  console.error('FAIL: Camera anticipation did not distinguish approaching from leaving the jump.');
+  process.exit(1);
+}
+console.log('PASS: Camera cue increases look-ahead only when approaching the jump with route alignment.');
 
 console.log('\n=== ALL AUDIT TESTS PASSED SUCCESSFULLY ===');
