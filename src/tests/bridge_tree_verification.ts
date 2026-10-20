@@ -271,6 +271,23 @@ if (rampSurface.slopeAngle < 0.01) {
   console.error('FAIL: Raised course section did not produce a ramp-aware support normal.');
   process.exit(1);
 }
+const mainlineGap = COURSE_ROUTES.find((route) => route.name === 'Meadow Mainline')?.gaps?.[0];
+const mainlineDefinition = COURSE_ROUTES.find((route) => route.name === 'Meadow Mainline');
+if (!mainlineGap || !mainlineDefinition) {
+  console.error('FAIL: Mainline jump gap metadata is missing.');
+  process.exit(1);
+}
+const mainlineCurve = new THREE.CatmullRomCurve3(
+  mainlineDefinition.points.map(([x, z], index) => new THREE.Vector3(x, mainlineDefinition.lifts[index], z)),
+  false,
+  'centripetal',
+  0.35,
+);
+const gapPoint = mainlineCurve.getPointAt((mainlineGap[0] + mainlineGap[1]) * 0.5);
+if (getCourseSurface(gapPoint.x, gapPoint.z, getTerrainHeight) !== null) {
+  console.error('FAIL: Mainline jump gap still resolves as a solid course surface.');
+  process.exit(1);
+}
 console.log(`PASS: Course lift profiles are valid; sampled waypoint grades stay under 12°; ramp support slope is ${(rampSurface.slopeAngle * 180 / Math.PI).toFixed(1)}°.`);
 
 
