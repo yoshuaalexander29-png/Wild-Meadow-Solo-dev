@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { getTerrainHeight } from './terrain';
-import { COURSE_ROUTES, COURSE_SAMPLE_COUNT, COURSE_SURFACE_LIFT, type CourseRouteDefinition } from './courseLayout';
+import { COURSE_ROUTES, COURSE_SAMPLE_COUNT, COURSE_SURFACE_LIFT, COURSE_BOARDWALK_MAX_HEIGHT, getCourseBoardwalkOffset, type CourseRouteDefinition } from './courseLayout';
 
 /**
  * Authored, terrain-following route dressing for the meadow.
@@ -170,16 +170,23 @@ export function createMeadowCourse(scene: THREE.Scene): MeadowCourse {
       const progress = t;
       if ((definition.gaps ?? []).some(([start, end]) => progress >= start && progress <= end)) continue;
       curve.getPointAt(t, plankPoint);
-      if (plankPoint.y < 0.42) continue;
+      const boardwalkOffset = getCourseBoardwalkOffset(plankPoint.y);
+      if (boardwalkOffset < 0.005) continue;
       curve.getTangentAt(t, plankTangent).setY(0).normalize();
       const terrainY = getTerrainHeight(plankPoint.x, plankPoint.z);
+      // Plank bottoms meet the shared route surface; the raised top is also used
+      // by the collision query, avoiding visual/physical deck-height disagreement.
       plankPosition.set(
         plankPoint.x,
-        terrainY + plankPoint.y + 0.005,
+        terrainY + plankPoint.y + COURSE_SURFACE_LIFT + boardwalkOffset * 0.5,
         plankPoint.z,
       );
       plankRotation.setFromUnitVectors(_up.clone().set(0, 0, 1), plankTangent);
-      plankScale.set(definition.width + definition.edge * 1.25, 1, 1);
+      plankScale.set(
+        definition.width + definition.edge * 1.25,
+        boardwalkOffset / COURSE_BOARDWALK_MAX_HEIGHT,
+        1,
+      );
       plankMatrix.compose(plankPosition, plankRotation, plankScale);
       planks.setMatrixAt(plankIndex++, plankMatrix);
     }
@@ -219,11 +226,12 @@ export function createMeadowCourse(scene: THREE.Scene): MeadowCourse {
     for (let i = 1; i < 10; i++) {
       const t = i / 10;
       curve.getPointAt(t, _supportPoint);
-      if (_supportPoint.y < 0.48) continue;
+      if (_supportPoint.y < 0.28) continue;
       curve.getTangentAt(t, _supportTangent).setY(0).normalize();
       _supportSide.crossVectors(_up, _supportTangent).normalize();
       const terrainY = getTerrainHeight(_supportPoint.x, _supportPoint.z);
-      const postHeight = _supportPoint.y + COURSE_SURFACE_LIFT - 0.06;
+      // Posts meet the underside of the lane; the boardwalk thickness grows gradually above it.
+      const postHeight = _supportPoint.y + COURSE_SURFACE_LIFT;
       if (postHeight <= 0.1) continue;
       for (const side of [-1, 1]) {
         if (supportIndex >= supportCapacity) break;
