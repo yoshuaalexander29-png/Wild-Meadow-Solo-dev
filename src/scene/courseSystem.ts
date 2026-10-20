@@ -37,7 +37,7 @@ function makeRibbon(
     for (const edge of [-1, 1]) {
       const x = point.x + side.x * width * 0.5 * edge;
       const z = point.z + side.z * width * 0.5 * edge;
-      positions.push(x, getTerrainHeight(x, z) + lift, z);
+      positions.push(x, getTerrainHeight(x, z) + point.y + lift, z);
       uvs.push(edge < 0 ? 0 : 1, t * 10);
     }
     if (i < segments) {
@@ -72,8 +72,8 @@ export function createMeadowCourse(scene: THREE.Scene): MeadowCourse {
   const routes: Array<{ curve: THREE.CatmullRomCurve3; definition: CourseRouteDefinition }> = [];
 
   for (const definition of COURSE_ROUTES) {
-    const points = definition.points.map(([x, z]) =>
-      new THREE.Vector3(x, getTerrainHeight(x, z), z)
+    const points = definition.points.map(([x, z], index) =>
+      new THREE.Vector3(x, definition.lifts[index] ?? 0, z)
     );
     const curve = new THREE.CatmullRomCurve3(points, false, 'centripetal', 0.35);
     routes.push({ curve, definition });
@@ -110,7 +110,7 @@ export function createMeadowCourse(scene: THREE.Scene): MeadowCourse {
         }),
       );
       ring.name = 'CourseJumpCue';
-      ring.position.set(point.x, getTerrainHeight(point.x, point.z) + 1.65, point.z);
+      ring.position.set(point.x, getTerrainHeight(point.x, point.z) + point.y + 1.65, point.z);
       ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangent);
       ring.castShadow = true;
       scene.add(ring);
