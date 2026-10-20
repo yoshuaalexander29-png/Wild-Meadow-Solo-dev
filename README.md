@@ -59,6 +59,38 @@ An explorable, third-person anime-fantasy meadow environment inspired by **Gensh
 - **Character Controller:** Camera-relative movement angle derivation adapted from `React-Three-Fiber-Character-Controller` patterns translated directly to native Three.js.
 - **Audio:** Zero-dependency procedural synthesis using the browser's native `AudioContext` (pink noise wind buffer + bandpass filter + pentatonic chime harmonics + soft grass footsteps).
 
+## Game-feel tuning and timing
+
+Movement response values live in `src/scene/gameFeel.ts` so the controller, camera, and deterministic tests share one documented source of truth.
+
+| Parameter | Current value | Intent |
+|---|---:|---|
+| Coyote time | 0.16 s | Allow a short late jump after leaving a ledge |
+| Jump buffer | 0.20 s | Remember a jump press shortly before landing |
+| Jump initial vertical speed | 7.2 m/s | Set takeoff strength |
+| Gravity | 21.0 m/s² | Set the main jump arc |
+| Apex hang threshold | 1.8 m/s | Reduce gravity near the apex |
+| Apex gravity scale | 0.65 | Briefly widen the apex timing window |
+| Vertical integration substep | 1/120 s | Bound integration steps within accepted frame deltas |
+| Ground acceleration response | 18 s⁻¹ | Reach target horizontal speed promptly |
+| Ground braking response | 24 s⁻¹ | Stop more decisively than accelerating |
+| Air-control response | 10 s⁻¹ | Preserve steering while limiting mid-air direction changes |
+| Ground turn response | 18 s⁻¹ | Smooth heading changes without an abrupt snap |
+| Camera look-ahead | min(speed × 0.20 s, 1.8 m) | Preview nearby traversal without excessive leading |
+
+The controller currently clamps each rendered-frame simulation delta to 50 ms; it does not yet run the *entire* movement/collision controller on a fixed-step accumulator. The vertical integrator substeps internally, but this does not make collision resolution or horizontal movement fully deterministic across frame rates. Do not treat the jump-integrator test as a full-controller certification.
+
+Game-feel values are engineering starting points, not universal standards. A playable browser session and repeated jumps at multiple approach speeds are still required to tune them by feel. Validate both low-speed approaches and sprint approaches before changing the gap dimensions or jump strength.
+
+### Engineering references
+
+- [Godot: Physics interpolation and render/physics timing](https://docs.godotengine.org/en/stable/tutorials/physics/interpolation/physics_interpolation_introduction.html) — explains why physics tick rate and render rate are distinct, and why fixed-step simulation is more predictable. Wild Meadow borrows the principle, not Godot-specific code.
+- [Three.js: WebGLRenderer](https://threejs.org/docs/pages/WebGLRenderer.html) — official renderer statistics and explicit renderer disposal guidance.
+- [r/aigamedev: level-design tool discussion](https://www.reddit.com/r/aigamedev/comments/1qi9xtl/would_you_use_this_level_design_tool/) — useful reminder that traversal mechanics and level geometry must be considered together.
+- [r/gamedesign: platformer design tips](https://www.reddit.com/r/gamedesign/comments/hy3jc5) — community advice on player-assistance windows and iterating on mechanics. Treat discussion as qualitative perspective, not authoritative measurement.
+
+No external runtime library was added for this iteration. The existing native Three.js/TypeScript architecture already supports these small helpers, so adding another dependency would increase integration and maintenance cost without solving a demonstrated problem.
+
 ## Build & Verification
 
 ```bash
