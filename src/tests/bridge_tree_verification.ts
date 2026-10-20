@@ -15,7 +15,7 @@ import {
   BRIDGE_HALF_LENGTH,
 } from '../scene/terrain';
 import { COURSE_ROUTES, getCourseSurface, getCourseAnticipation, getCourseBoardwalkOffset, COURSE_SURFACE_LIFT } from '../scene/courseLayout';
-import { advanceHorizontalVelocity, advanceVerticalMotion, GAME_FEEL, getResponseAlpha, updateJumpAssistTimers } from '../scene/gameFeel';
+import { advanceHorizontalVelocity, advanceVerticalMotion, clampControllerDelta, GAME_FEEL, getResponseAlpha, updateJumpAssistTimers } from '../scene/gameFeel';
 import { createMeadowCourse } from '../scene/courseSystem';
 import {
   calculateBridgeCorners,
@@ -494,6 +494,18 @@ console.log(`  1s air steering to 7m/s at 30/60/120 FPS: ${airSteerResults.map(v
 console.log('PASS: live-controller horizontal response kernel is deterministic across tested render rates.');
 
 console.log('\nTest 16: Centralized game-feel values and jump-assist timing');
+const hitchDelta = clampControllerDelta(0.12);
+const minimumDelta = clampControllerDelta(0.0001);
+const invalidDelta = clampControllerDelta(Number.NaN);
+if (Math.abs(hitchDelta - 0.05) > 1e-9 || Math.abs(minimumDelta - 0.001) > 1e-9
+  || Math.abs(invalidDelta - 1 / 60) > 1e-9) {
+  console.error('FAIL: Controller frame-delta clamp does not bound long or invalid frame times.');
+  process.exit(1);
+}
+console.log(`  120ms hitch -> ${(hitchDelta * 1000).toFixed(0)}ms simulated; invalid delta -> ${(invalidDelta * 1000).toFixed(2)}ms fallback`);
+console.log('PASS: Controller simulation delta is bounded and rejects non-finite frame times.');
+
+
 if (GAME_FEEL.coyoteTimeSeconds !== 0.16 || GAME_FEEL.jumpBufferSeconds !== 0.2) {
   console.error('FAIL: Documented coyote/buffer timing changed unexpectedly.');
   process.exit(1);
