@@ -793,23 +793,39 @@ export function createPlatformerCourse(scene: THREE.Scene, seed = 42): Platforme
   let isDisposed = false;
 
   // -------------------------------------------------------------
-  // Materials Palette (Ghibli Cel-Shaded Warm Meadow Aesthetic)
+  // Art-directed timber boardwalk palette.
+  // Keep the course visually integrated with the meadow: muted honey oak,
+  // dark edge grain, and a restrained vermilion only for wayfinding.
   // -------------------------------------------------------------
   const trackMat = new THREE.MeshStandardMaterial({
-    color: '#deb67a', // Warm packed earthen amber course planks
-    roughness: 0.82,
-    metalness: 0.04,
-    flatShading: true,
+    color: '#b88a52',
+    roughness: 0.92,
+    metalness: 0,
+    flatShading: false,
   });
   ownedMaterials.add(trackMat);
 
   const skillTrackMat = new THREE.MeshStandardMaterial({
-    color: '#e49348', // Vibrant cedar ochre for upper skill ramp & banked curve
-    roughness: 0.78,
-    metalness: 0.05,
-    flatShading: true,
+    color: '#c99b61',
+    roughness: 0.9,
+    metalness: 0,
+    flatShading: false,
   });
   ownedMaterials.add(skillTrackMat);
+
+  const boardMat = new THREE.MeshStandardMaterial({
+    color: '#d6b37b',
+    roughness: 0.94,
+    metalness: 0,
+  });
+  ownedMaterials.add(boardMat);
+
+  const edgeMat = new THREE.MeshStandardMaterial({
+    color: '#65452f',
+    roughness: 0.96,
+    metalness: 0,
+  });
+  ownedMaterials.add(edgeMat);
 
   const landingMat = new THREE.MeshStandardMaterial({
     color: '#3ea86b', // Clover green launch & target landing platform
@@ -996,6 +1012,90 @@ export function createPlatformerCourse(scene: THREE.Scene, seed = 42): Platforme
   }
 
   // -------------------------------------------------------------
+  // Boardwalk detailing: low side curbs and subtle cross-board seams.
+  // Separate meshes are batched per material; no individual plank objects.
+  // -------------------------------------------------------------
+  const boardPositions: number[] = [];
+  const boardIndices: number[] = [];
+  const boardUvs: number[] = [];
+  const curbPositions: number[] = [];
+  const curbIndices: number[] = [];
+
+  for (const seg of data.segments) {
+    if (seg.isAirGap) continue;
+    const samples = seg.samples;
+    // One narrow seam every ~1.2m makes the track read as crafted timber
+    // without high-frequency geometry or a noisy striped texture.
+    let travelled = 0;
+    let nextSeam = 1.2;
+    for (let i = 1; i < samples.length; i++) {
+      travelled += samples[i].point.distanceTo(samples[i - 1].point);
+      if (travelled < nextSeam || i >= samples.length - 1) continue;
+      nextSeam += 1.2;
+      const s = samples[i];
+      const halfW = s.width * 0.5;
+      const left = s.point.clone().addScaledVector(s.binormal, -halfW + 0.035);
+      const right = s.point.clone().addScaledVector(s.binormal, halfW - 0.035);
+      const lift = s.normal.clone().multiplyScalar(0.012);
+      left.add(lift); right.add(lift);
+      const base = boardPositions.length / 3;
+      boardPositions.push(left.x,left.y,left.z, right.x,right.y,right.z);
+      boardUvs.push(0, travelled, 1, travelled);
+      // Narrow seam strip sits just above the deck; dark but not black.
+      const insetL = left.clone().addScaledVector(s.tangent, -0.018);
+      const insetR = right.clone().addScaledVector(s.tangent, -0.018);
+      boardPositions.push(insetL.x,insetL.y,insetL.z, insetR.x,insetR.y,insetR.z);
+      boardUvs.push(0, travelled + 0.018, 1, travelled + 0.018);
+      boardIndices.push(base,base+1,base+2, base+1,base+3,base+2);
+    }
+
+    // Restrained raised timber curbs along elevated, non-air-gap route edges.
+    if (seg.feature === 'ramp' || seg.feature === 'banked-turn' || seg.feature === 'safe-ramp') {
+      for (let i = 0; i < samples.length; i += 3) {
+        const s = samples[i];
+        for (const side of [-1, 1]) {
+          const edge = s.point.clone().addScaledVector(s.binormal, side * (s.width * 0.5 - 0.07));
+          const base = curbPositions.length / 3;
+          const h = 0.12;
+          const top = edge.clone().addScaledVector(s.normal, h);
+          const a = edge.clone().addScaledVector(s.normal, -0.04);
+          const b = edge.clone().addScaledVector(s.tangent, 0.11).addScaledVector(s.normal, -0.04);
+          const cc = top.clone().addScaledVector(s.tangent, 0.11);
+          const d = top;
+          curbPositions.push(a.x,a.y,a.z,b.x,b.y,b.z,cc.x,cc.y,cc.z,d.x,d.y,d.z);
+          curbIndices.push(base,base+1,base+2,base,base+2,base+3);
+        }
+      }
+    }
+  }
+
+  if (boardPositions.length) {
+    const boardGeo = new THREE.BufferGeometry();
+    boardGeo.setAttribute('position', new THREE.Float32BufferAttribute(boardPositions, 3));
+    boardGeo.setAttribute('uv', new THREE.Float32BufferAttribute(boardUvs, 2));
+    boardGeo.setIndex(boardIndices);
+    boardGeo.computeVertexNormals();
+    ownedGeometries.add(boardGeo);
+    const seams = new THREE.Mesh(boardGeo, edgeMat);
+    seams.receiveShadow = true;
+    group.add(seams);
+    obstacleMeshList.push(seams);
+  }
+
+  if (curbPositions.length) {
+    const curbGeo = new THREE.BufferGeometry();
+    curbGeo.setAttribute('position', new THREE.Float32BufferAttribute(curbPositions, 3));
+    curbGeo.setIndex(curbIndices);
+    curbGeo.computeVertexNormals();
+    ownedGeometries.add(curbGeo);
+    const curbs = new THREE.Mesh(curbGeo, boardMat);
+    curbs.castShadow = true;
+    curbs.receiveShadow = true;
+    group.add(curbs);
+    obstacleMeshList.push(curbs);
+  }
+
+  // -------------------------------------------------------------
   // Dedicated Landing Platform Mesh
   // -------------------------------------------------------------
   const lp = data.landingPlatform;
@@ -1175,10 +1275,8 @@ export function createPlatformerCourse(scene: THREE.Scene, seed = 42): Platforme
               const vy = verticalSpeed ?? 0;
 
               // Case A: Character is grounded on this course deck
-              if (
-                isGrounded &&
-                (previousSurfaceId === seg.id || Math.abs(characterY - deckHeight) < 0.65)
-              ) {
+              if (isGrounded && previousSurfaceId === seg.id) {
+                // Preserve support continuity when the controller already knows its deck.
                 return {
                   height: deckHeight,
                   normal: s.normal.clone(),
@@ -1188,6 +1286,27 @@ export function createPlatformerCourse(scene: THREE.Scene, seed = 42): Platforme
                   isDeepWater: false,
                   slopeAngle: Math.abs(s.gradeAngle),
                 };
+              }
+
+              if (isGrounded && Math.abs(characterY - deckHeight) < 0.65) {
+                // Do not return the first horizontally overlapping deck: a lower route
+                // can pass directly beneath an elevated one. Rank by vertical fit first.
+                const verticalError = Math.abs(characterY - deckHeight);
+                const currentError = bestCandidate
+                  ? Math.abs(characterY - bestCandidate.height)
+                  : Number.POSITIVE_INFINITY;
+                if (!bestCandidate || verticalError < currentError ||
+                    (verticalError === currentError && distSq < bestCandidate.distSq)) {
+                  bestCandidate = {
+                    height: deckHeight,
+                    normal: s.normal,
+                    segmentId: seg.id,
+                    feature: s.feature,
+                    distSq,
+                    crownSlope: Math.abs(s.gradeAngle),
+                  };
+                }
+                continue;
               }
 
               // Case B: Character is under the elevated deck (underpass headroom)
@@ -1273,6 +1392,15 @@ export function createPlatformerCourse(scene: THREE.Scene, seed = 42): Platforme
       }
     }
 
+    // Treat the authored fork as a landmark, not merely the nearest spline sample.
+    // The two branches diverge here, so camera composition should begin before the
+    // nearest-sample classifier flips from run-up to ramp/safe-route.
+    const splitNode = data.nodes.find((node) => node.id === 'split');
+    const nearSplit = !!splitNode && Math.hypot(
+      charPos.x - splitNode.position.x,
+      charPos.z - splitNode.position.z
+    ) < 3.4;
+
     const onCourse = nearestDist < 5.5;
     if (!onCourse) {
       _camLookTarget.copy(charPos).add(new THREE.Vector3(0, 1.25, 0));
@@ -1286,7 +1414,7 @@ export function createPlatformerCourse(scene: THREE.Scene, seed = 42): Platforme
     // Dynamic anticipation based on upcoming course landmark
     const lookAheadDist = THREE.MathUtils.clamp(speed * 0.45, 1.8, 4.2);
 
-    if (currentFeature === 'split') {
+    if (nearSplit || currentFeature === 'split') {
       // Frame both diverging route options at the fork
       _camLookTarget.set(18.0, charPos.y + 1.6, 2.0);
       return {
