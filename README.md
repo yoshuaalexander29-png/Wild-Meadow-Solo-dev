@@ -128,4 +128,11 @@ npm run build
 
 The verification suite checks bridge support, course entry distance, sampled obstacle and brook clearance, shortcut length, ramp grade limits, ramp-aware support normals, the open collision gap, one-sided elevated-deck support, boardwalk/support-height agreement, directional camera anticipation, and the shared jump integrator at 30/60/120 FPS plus a 120 ms frame hitch.
 
+Latest successful CI run (Node 20, commit `004c5ec3d8b37fe716730699b8d738baa45c2423`) reported:
+- One-second horizontal response toward a 7.0 m/s target using the shared exponential response: **6.9997 m/s** at 30, 60, and 120 FPS.
+- Vertical-only jump-integrator estimate at 7.2 m/s initial velocity: flight times of **0.800 s / 0.783 s / 0.775 s** at 30/60/120 FPS, corresponding to estimated horizontal ranges of **5.60 m / 5.48 m / 5.42 m** at a constant assumed 7.0 m/s horizontal speed.
+- A 120 ms integrator test step produced a **0.840 s** sampled flight time and **5.88 m** estimated range. This is a numerical integration check, not a test of the full controller during a 120 ms browser hitch: the controller currently clamps each update delta to 50 ms.
+
+These numbers are automated model outputs, not in-game telemetry, actual landing success rates, or measured player experience. No live-device frame-time, GPU draw-call, memory, or visual screenshot measurements have been captured in this environment.
+
 Automated checks do **not** replace a browser playthrough. Camera framing, visual seams, jump feel at different approach speeds, mobile readability, and performance still require runtime inspection on the target game build before the course can be called visually validated. The CI suite verifies the shared vertical integration algorithm, but does not yet simulate the complete character controller with horizontal acceleration, coyote time, collision footprint, and actual landing surfaces.
