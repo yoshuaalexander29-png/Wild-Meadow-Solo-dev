@@ -156,9 +156,9 @@ This section supersedes older statements about the latest verification run. The 
 
 ### Controller-level versus isolated tests
 
-The verification suite now includes the production `createCharacterController(...).update(...)` path for frame-rate movement/braking and a buffered second jump. Existing pure-function checks exercise the horizontal response kernel, jump-assist timers, vertical integration, and delta clamping. Surface-resolver checks cover the mainline gap being absent from support, landing on an elevated course, and avoiding magnetic support from below the deck.
+The verification suite now includes the production `createCharacterController(...).update(...)` path for frame-rate movement/braking, a buffered second jump, and one actual run-speed jump across the authored gap at 120 FPS. That jump used a 0.85 input magnitude, reached **5.14 m/s** takeoff speed, progressed **3.64 m** against the **3.47 m** gap chord, and landed on a surface reported as `course`. This is a successful deterministic controller fixture, not visual or player testing. Existing pure-function checks exercise the horizontal response kernel, jump-assist timers, vertical integration, and delta clamping. Surface-resolver checks cover the mainline gap being absent from support, landing on an elevated course, and avoiding magnetic support from below the deck.
 
-Still **not** end-to-end verified: jumping the actual gap at slower and sprint approaches; coyote-time activation in the full controller; the character footprint at a landing edge; a full under-deck jump trajectory; missed-jump recovery through the actual controller; and route traversal from fork through merge and finish. The constant-speed reach envelope is geometry plus the production vertical integrator, not a substitute for those scenarios.
+Still **not** end-to-end verified: the gap at slow and sprint approaches; the same full-controller jump at 30 and 60 FPS; coyote-time activation in the full controller; landing-edge tolerance across the character footprint; a full under-deck jump trajectory; missed-jump recovery through the actual controller; and traversal from fork through merge and finish. The constant-speed reach envelope is geometry plus the production vertical integrator, not a substitute for those scenarios.
 
 ### Route and environmental-storytelling audit
 
