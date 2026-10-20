@@ -70,13 +70,15 @@ Movement response values live in `src/scene/gameFeel.ts` so the controller, came
 | Jump initial vertical speed | 7.2 m/s | Set takeoff strength |
 | Gravity | 21.0 m/s² | Set the main jump arc |
 | Apex hang threshold | 1.8 m/s | Reduce gravity near the apex |
-| Apex gravity scale | 0.65 | Briefly widen the apex timing window |
+| Apex gravity scale | 0.65 | Briefly widen the apex timing window while the character is still rising; descent uses full gravity |
 | Vertical integration substep | 1/120 s | Bound integration steps within accepted frame deltas |
 | Ground acceleration response | 18 s⁻¹ | Reach target horizontal speed promptly |
 | Ground braking response | 24 s⁻¹ | Stop more decisively than accelerating |
 | Air-control response | 10 s⁻¹ | Preserve steering while limiting mid-air direction changes |
 | Ground turn response | 18 s⁻¹ | Smooth heading changes without an abrupt snap |
 | Camera look-ahead | min(speed × 0.20 s, 1.8 m) | Preview nearby traversal without excessive leading |
+
+Apex assistance is deliberately rising-only: reducing gravity for small-magnitude downward velocity made landings floatier and extended short drops, so the integrator now applies the 0.65 gravity scale only for positive vertical velocity below the 1.8 m/s threshold. A regression test checks rising and descending cases independently.
 
 The controller currently clamps each rendered-frame simulation delta to 50 ms; it does not yet run the *entire* movement/collision controller on a fixed-step accumulator. The vertical integrator substeps internally, but this does not make collision resolution or horizontal movement fully deterministic across frame rates. Do not treat the jump-integrator test as a full-controller certification.
 
