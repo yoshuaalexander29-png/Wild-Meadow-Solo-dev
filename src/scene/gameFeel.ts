@@ -33,6 +33,12 @@ export const GAME_FEEL = Object.freeze({
   cameraSpeedLookAheadSeconds: 0.20,
 });
 
+/** Keep a render-frame hitch from advancing the controller by an unbounded step. */
+export function clampControllerDelta(deltaSeconds: number): number {
+  if (!Number.isFinite(deltaSeconds)) return 1 / 60;
+  return Math.min(Math.max(deltaSeconds, 0.001), 0.05);
+}
+
 export interface VerticalMotionStep {
   velocity: number;
   displacement: number;
