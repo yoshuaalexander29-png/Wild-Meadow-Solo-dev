@@ -7,7 +7,7 @@ import {
 } from './terrain';
 import { createDustSystem, type DustSystem } from './dustSystem';
 import { meadowAudio } from '../audio/proceduralAudio';
-import { advanceVerticalMotion, GAME_FEEL, getResponseAlpha, updateJumpAssistTimers } from './gameFeel';
+import { advanceHorizontalVelocity, advanceVerticalMotion, GAME_FEEL, updateJumpAssistTimers } from './gameFeel';
 import type { MovementInput } from '../types';
 
 export interface CharacterControllerCallbacks {
@@ -454,7 +454,15 @@ export function createCharacterController(
         const velocityResponse = isGrounded
           ? (hasInput ? GAME_FEEL.groundAcceleration : GAME_FEEL.groundBraking)
           : GAME_FEEL.airControl;
-        _currentVel.lerp(_targetVel, getResponseAlpha(velocityResponse, dt));
+        const horizontalStep = advanceHorizontalVelocity(
+          _currentVel.x,
+          _currentVel.z,
+          _targetVel.x,
+          _targetVel.z,
+          velocityResponse,
+          dt,
+        );
+        _currentVel.set(horizontalStep.x, _currentVel.y, horizontalStep.z);
       }
 
       // Smooth turning with natural banking
