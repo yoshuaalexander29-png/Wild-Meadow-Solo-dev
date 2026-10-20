@@ -8,13 +8,13 @@ An explorable, third-person anime-fantasy meadow environment inspired by **Gensh
 
 ### 1. Responsive Third-Person Knight Controller
 - **Character:** Quaternius CC0 `Knight_Male.glb` with real-time animation blending (`Idle`, `Walk`, `Run`).
-- **Dynamic Speed & Damping:** Smooth acceleration, variable walk (~2.8 m/s) and sprint (~6.2 m/s) speeds, frame-rate independent rotation damping facing the direction of travel.
+- **Dynamic Speed & Damping:** Smooth acceleration, variable movement speeds (walk up to ~2.8 m/s, run up to ~5.2 m/s, sprint ~7.0 m/s), frame-rate independent rotation damping facing the direction of travel.
 - **Footstep Audio:** Procedural soft grass rustle footsteps synchronized to movement speed.
 - **Terrain Grounding & Collision:** Real-time height sampling with `getTerrainHeight(x, z)` and circle-capsule obstacle collision resolution preventing walking through trees, boulders, or ruin pillars.
 
 ### 2. Exploration Orbit / Follow Camera
 - **Full 360° Orbit:** Horizontal yaw and vertical pitch elevation (-12° to +66°) with spring-like follow damping.
-- **Zoom Adjustment:** Smooth distance zoom (3.0m to 11.0m) via mouse wheel.
+- **Zoom Adjustment:** Smooth distance zoom (3.5m to 8.5m) via mouse wheel.
 - **Terrain Clearance:** Camera position is dynamically clamped above terrain elevation to prevent clipping through hills.
 - **Optional Cinematic Mode:** Seamless toggle between player exploration and cinematic 5-shot tour.
 
@@ -30,13 +30,23 @@ An explorable, third-person anime-fantasy meadow environment inspired by **Gensh
 - **Landmark 3 — Scenic Overlook Bluff:** High-ground promontory with viewing boulders overlooking the valley and distant mountains.
 - **Atmosphere:** Azure sky (`#7ecbf7`), soft distance fog (`#a0daf5`), warm golden sunlight (`#fff8d8`), and drifting Anemo dandelion motes.
 
-### 5. Controls
+### 5. Procedural Platforming Course
+
+- A deterministic, seeded course graph creates a start/run-up, an upper skill route with a ramp and jump, a forgiving lower route, a shared elevated merge, and a return to the finish.
+- Course ribbon geometry and support queries share sampled centreline data; the surface resolver considers character height and movement state so a character below an elevated deck is not intentionally snapped onto it.
+- The default course seed is `42`. The current generator varies selected node positions within a constrained corridor while preserving route topology.
+- Route clearance, 100 deterministic seeds, merge height, jump reachability at multiple frame rates, bridge/terrain regressions, dust materials, camera context, and idempotent resource cleanup have automated tests. Browser-rendered visual quality and device performance still require separate manual QA.
+
+### 6. Controls
 
 #### Desktop
-- **W / A / S / D** or **Arrow Keys:** Move the knight relative to the camera heading.
+- **W / A / S / D:** Move relative to camera heading.
+- **Space:** Jump (edge-triggered, with jump buffering/coyote time).
 - **Left Shift / Right Shift:** Sprint.
-- **Mouse Drag (Left Click):** Rotate camera around the knight.
-- **Mouse Wheel:** Zoom in and out.
+- **C:** Roll.
+- **V:** Cheer/emote.
+- **Mouse Drag:** Orbit the camera; manual orbit temporarily takes priority over automatic camera following.
+- **Mouse Wheel:** Zoom in and out (3.5m–8.5m).
 
 #### Touch / Mobile
 - **Virtual Joystick (Bottom-Left):** Drag to move in any direction relative to the camera.
@@ -53,12 +63,18 @@ An explorable, third-person anime-fantasy meadow environment inspired by **Gensh
 
 ## Build & Verification
 
+Use Bun with the committed `bun.lock` to keep dependency resolution consistent:
+
 ```bash
-npm install
-npm run dev    # Starts Vite dev server on 0.0.0.0:3000
-npm run build  # Compiles TypeScript and builds production bundle
-npm run lint   # Verifies TypeScript types with zero errors
+bun install --frozen-lockfile
+bun run dev       # Starts Vite on 0.0.0.0:3000
+bun run lint      # TypeScript checks
+bun run test      # Vitest suite
+bun run build     # TypeScript compile + production bundle
+bun run verify    # lint + tests + production build
 ```
+
+GitHub Actions runs `bun run verify` on pushes and pull requests. Passing automated checks is not a substitute for visual playthrough or device performance measurement.
 
 ## Asset Licenses
 

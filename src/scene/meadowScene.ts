@@ -88,18 +88,19 @@ export function initMeadowScene(
   // 1. Build Inhabited Environment (Brook, bridge, campfire, Windrise oak, artist knoll)
   const environment = createEnvironment(scene);
 
-  // 2. Build Interactive Grass & Wildflowers (GPU wind + character deformation)
-  const grassSystem = createGrassSystem(scene);
-
-  // 3. Delicate Dandelion System (Floating Pappus + Field Clocks)
-  const dandelionSystem: DandelionSystem = createDandelionSystem(scene);
-
-  // 4. Authored Painterly Ghibli Cumulus Cloud Formations
-  const cloudSystem: CloudSystem = createCloudSystem(scene);
-
-  // 5. Studio-Grade Procedural Platformer Course & Surface Resolver
+  // 2. Build the authored course before ground cover so foliage can respect
+  // the playable ribbon and keep route edges legible.
   const platformerCourse: PlatformerCourse = createPlatformerCourse(scene);
   const surfaceResolver = createSurfaceResolver(platformerCourse);
+
+  // 3. Interactive Grass & Wildflowers, excluding the course's walkable corridor.
+  const grassSystem = createGrassSystem(scene, platformerCourse.data.segments);
+
+  // 4. Delicate Dandelion System (Floating Pappus + Field Clocks)
+  const dandelionSystem: DandelionSystem = createDandelionSystem(scene);
+
+  // 5. Authored Painterly Ghibli Cumulus Cloud Formations
+  const cloudSystem: CloudSystem = createCloudSystem(scene);
 
   // 6. Hero Character Controller Setup (Spawned immediately on campsite path)
   const initialKnightPos = new THREE.Vector3(
@@ -107,15 +108,22 @@ export function initMeadowScene(
     getTerrainHeight(SAFE_RESPAWN.x, SAFE_RESPAWN.z),
     SAFE_RESPAWN.z
   );
+  // Start with the authored course ahead in the opening composition while keeping
+  // the normal free-orbit camera controls available immediately.
+  const initialCourseHeading = Math.atan2(
+    platformerCourse.data.startGate.position.x - initialKnightPos.x,
+    platformerCourse.data.startGate.position.z - initialKnightPos.z
+  );
 
   // Instantly create and mount the Ghibli Cel-Shaded Adventurer Knight
   const heroKnight = createHeroKnight();
   heroKnight.group.position.copy(initialKnightPos);
-  heroKnight.group.rotation.y = SAFE_RESPAWN.rotY;
+  heroKnight.group.rotation.y = initialCourseHeading;
   heroKnight.group.userData.heroRig = heroKnight;
   scene.add(heroKnight.group);
 
   const thirdPersonCam: ThirdPersonCamera = createThirdPersonCamera(camera, initialKnightPos);
+  thirdPersonCam.yaw = initialCourseHeading + Math.PI;
 
   const characterController: CharacterController = createCharacterController(
     heroKnight.group,

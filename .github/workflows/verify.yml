@@ -1,0 +1,63 @@
+name: Verify Wild Meadow
+
+on:
+  push:
+    branches:
+      - main
+      - improve/adaptive-platformer-camera
+      - fix/course-validation-and-runtime
+      - fix/course-surface-camera-repair
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+      - name: Install locked dependencies
+        run: bun install --frozen-lockfile
+      - name: Run lint, tests, and production build
+        run: bun run verify
+
+  browser-smoke:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+      - name: Install locked dependencies
+        run: bun install --frozen-lockfile
+      - name: Install Chromium for real browser pixels
+        run: bunx playwright install --with-deps chromium
+      - name: Start the game
+        run: |
+          bun run dev > /tmp/wild-meadow-vite.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3000/ > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/wild-meadow-vite.log
+          exit 1
+      - name: Capture initial WebGL scene
+        run: |
+          mkdir -p artifacts
+          bunx playwright screenshot --browser chromium --viewport-size="1280,800" --wait-for-timeout=6000 http://127.0.0.1:3000/ artifacts/wild-meadow-start.png
+      - name: Upload rendered screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: wild-meadow-browser-smoke
+          path: artifacts/wild-meadow-start.png
+          if-no-files-found: error

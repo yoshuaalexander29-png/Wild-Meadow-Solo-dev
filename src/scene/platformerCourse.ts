@@ -1055,8 +1055,8 @@ export function createPlatformerCourse(scene: THREE.Scene, seed = 42): Platforme
   // -------------------------------------------------------------
   // Checkpoint Gates, Lanterns, and Banners
   // -------------------------------------------------------------
-  const gateTimberGeo = new THREE.BoxGeometry(0.24, 3.4, 0.24);
-  const gateBeamGeo = new THREE.BoxGeometry(4.4, 0.28, 0.28);
+  const gateTimberGeo = new THREE.BoxGeometry(0.18, 2.45, 0.18);
+  const gateBeamGeo = new THREE.BoxGeometry(3.55, 0.2, 0.2);
   const lanternGeo = new THREE.DodecahedronGeometry(0.22, 1);
   ownedGeometries.add(gateTimberGeo);
   ownedGeometries.add(gateBeamGeo);
@@ -1072,35 +1072,35 @@ export function createPlatformerCourse(scene: THREE.Scene, seed = 42): Platforme
 
     // Torii / Arch Posts
     const leftPost = new THREE.Mesh(gateTimberGeo, vermilionRailMat);
-    leftPost.position.set(-2.0, 1.7, 0);
+    leftPost.position.set(-1.62, 1.22, 0);
     leftPost.castShadow = true;
     cpGroup.add(leftPost);
 
     const rightPost = new THREE.Mesh(gateTimberGeo, vermilionRailMat);
-    rightPost.position.set(2.0, 1.7, 0);
+    rightPost.position.set(1.62, 1.22, 0);
     rightPost.castShadow = true;
     cpGroup.add(rightPost);
 
     // Crossbar Beam
     const crossBeam = new THREE.Mesh(gateBeamGeo, vermilionRailMat);
-    crossBeam.position.set(0, 3.2, 0);
+    crossBeam.position.set(0, 2.32, 0);
     crossBeam.castShadow = true;
     cpGroup.add(crossBeam);
 
     // Gold Finials atop posts
     const finialL = new THREE.Mesh(new THREE.SphereGeometry(0.16, 6, 6), goldAccentMat);
-    finialL.position.set(-2.0, 3.5, 0);
+    finialL.position.set(-1.62, 2.58, 0);
     ownedGeometries.add(finialL.geometry);
     cpGroup.add(finialL);
 
     const finialR = new THREE.Mesh(new THREE.SphereGeometry(0.16, 6, 6), goldAccentMat);
-    finialR.position.set(2.0, 3.5, 0);
+    finialR.position.set(1.62, 2.58, 0);
     ownedGeometries.add(finialR.geometry);
     cpGroup.add(finialR);
 
     // Hanging Lantern
     const lantern = new THREE.Mesh(lanternGeo, lanternGlowMat);
-    lantern.position.set(0, 2.7, 0);
+    lantern.position.set(0, 1.98, 0);
     cpGroup.add(lantern);
 
     group.add(cpGroup);
@@ -1139,7 +1139,9 @@ export function createPlatformerCourse(scene: THREE.Scene, seed = 42): Platforme
     isGrounded?: boolean,
     previousSurfaceId?: string
   ): WalkableSurface | null {
-    // 1. Find candidate course samples near (x, z)
+    // Project onto the same sampled centreline used by the rendered ribbon. Using
+    // isolated samples causes height errors on steep ramps and can pick the wrong
+    // deck near junctions; segment projection gives a continuous support estimate.
     let bestCandidate: {
       height: number;
       normal: THREE.Vector3;
@@ -1150,101 +1152,82 @@ export function createPlatformerCourse(scene: THREE.Scene, seed = 42): Platforme
     } | null = null;
 
     for (const seg of data.segments) {
-      if (seg.isAirGap) continue;
-
+      if (seg.isAirGap || seg.samples.length < 2) continue;
       const samples = seg.samples;
-      const count = samples.length;
 
-      for (let i = 0; i < count; i++) {
-        const s = samples[i];
-        const dx = x - s.point.x;
-        const dz = z - s.point.z;
-        const distSq = dx * dx + dz * dz;
-        const halfW = s.width * 0.5 + 0.35; // Comfortable boundary tolerance
+      for (let i = 0; i < samples.length - 1; i++) {
+        const a = samples[i];
+        const b = samples[i + 1];
+        const dx = b.point.x - a.point.x;
+        const dz = b.point.z - a.point.z;
+        const lengthSq = dx * dx + dz * dz;
+        if (lengthSq < 1e-8) continue;
 
-        if (distSq <= halfW * halfW) {
-          // Project lateral distance along binormal
-          const lateral = dx * s.binormal.x + dz * s.binormal.z;
-          if (Math.abs(lateral) <= halfW) {
-            // Calculate exact surface elevation with bank slope
-            const bankOffset = lateral * Math.tan(s.bankAngle);
-            const deckHeight = s.point.y + bankOffset;
+        const t = THREE.MathUtils.clamp(((x - a.point.x) * dx + (z - a.point.z) * dz) / lengthSq, 0, 1);
+        const cx = a.point.x + dx * t;
+        const cz = a.point.z + dz * t;
+        const offX = x - cx;
+        const offZ = z - cz;
+        const distSq = offX * offX + offZ * offZ;
+        const width = THREE.MathUtils.lerp(a.width, b.width, t);
+        const halfW = width * 0.5 + 0.35;
+        if (distSq > halfW * halfW) continue;
 
-            // Multi-level candidate evaluation
-            if (characterY !== undefined) {
-              const vy = verticalSpeed ?? 0;
+        const binormalX = THREE.MathUtils.lerp(a.binormal.x, b.binormal.x, t);
+        const binormalZ = THREE.MathUtils.lerp(a.binormal.z, b.binormal.z, t);
+        const lateral = offX * binormalX + offZ * binormalZ;
+        if (Math.abs(lateral) > halfW) continue;
 
-              // Case A: Character is grounded on this course deck
-              if (
-                isGrounded &&
-                (previousSurfaceId === seg.id || Math.abs(characterY - deckHeight) < 0.65)
-              ) {
-                return {
-                  height: deckHeight,
-                  normal: s.normal.clone(),
-                  surfaceType: 'wood',
-                  waterDepth: 0,
-                  isBridge: true,
-                  isDeepWater: false,
-                  slopeAngle: Math.abs(s.gradeAngle),
-                };
-              }
+        const centerY = THREE.MathUtils.lerp(a.point.y, b.point.y, t);
+        const bankAngle = THREE.MathUtils.lerp(a.bankAngle, b.bankAngle, t);
+        const deckHeight = centerY + lateral * Math.tan(bankAngle);
+        const grade = Math.abs(THREE.MathUtils.lerp(a.gradeAngle, b.gradeAngle, t));
+        const normal = a.normal.clone().lerp(b.normal, t).normalize();
 
-              // Case B: Character is under the elevated deck (underpass headroom)
-              // If character Y is below deck by more than 0.45m, deck is above them! Do NOT snap up!
-              if (characterY < deckHeight - 0.45) {
-                continue; // Skip elevated deck, allow lower ground terrain to support player
-              }
+        if (characterY !== undefined) {
+          const vy = verticalSpeed ?? 0;
 
-              // Case C: Character is airborne jumping up from below (cannot land from underside)
-              if (!isGrounded && vy > 0.05 && characterY < deckHeight) {
-                continue;
-              }
+          // A grounded support must be close to the character's current height.
+          // Previous support only breaks ties between equally plausible surfaces.
+          if (isGrounded) {
+            if (Math.abs(characterY - deckHeight) >= 0.65) continue;
+            if (
+              !bestCandidate ||
+              distSq < bestCandidate.distSq ||
+              (previousSurfaceId === seg.id && bestCandidate.segmentId !== previousSurfaceId)
+            ) {
+              bestCandidate = { height: deckHeight, normal, segmentId: seg.id, feature: a.feature, distSq, crownSlope: grade };
+            }
+            continue;
+          }
 
-              // Case D: Character is airborne descending onto deck from above
-              if (!isGrounded && vy <= 0.05 && characterY >= deckHeight - 0.35) {
-                if (!bestCandidate || distSq < bestCandidate.distSq) {
-                  bestCandidate = {
-                    height: deckHeight,
-                    normal: s.normal,
-                    segmentId: seg.id,
-                    feature: s.feature,
-                    distSq,
-                    crownSlope: Math.abs(s.gradeAngle),
-                  };
-                }
-              }
-            } else {
-              // Backward-compatibility: height query without character state
-              if (!bestCandidate || distSq < bestCandidate.distSq) {
-                bestCandidate = {
-                  height: deckHeight,
-                  normal: s.normal,
-                  segmentId: seg.id,
-                  feature: s.feature,
-                  distSq,
-                  crownSlope: Math.abs(s.gradeAngle),
-                };
-              }
+          // Never land on the underside of a deck or while rising up through it.
+          if (characterY < deckHeight - 0.45) continue;
+          if (vy > 0.05 && characterY < deckHeight) continue;
+
+          // A descending character can only use a surface at or just below its feet.
+          if (vy <= 0.05 && characterY >= deckHeight - 0.35) {
+            if (!bestCandidate || distSq < bestCandidate.distSq) {
+              bestCandidate = { height: deckHeight, normal, segmentId: seg.id, feature: a.feature, distSq, crownSlope: grade };
             }
           }
+        } else if (!bestCandidate || distSq < bestCandidate.distSq) {
+          bestCandidate = { height: deckHeight, normal, segmentId: seg.id, feature: a.feature, distSq, crownSlope: grade };
         }
       }
     }
 
-    if (bestCandidate) {
-      return {
-        height: bestCandidate.height,
-        normal: bestCandidate.normal.clone(),
-        surfaceType: 'wood',
-        waterDepth: 0,
-        isBridge: true,
-        isDeepWater: false,
-        slopeAngle: bestCandidate.crownSlope,
-      };
-    }
-
-    return null;
+    if (!bestCandidate) return null;
+    return {
+      height: bestCandidate.height,
+      normal: bestCandidate.normal.clone(),
+      surfaceId: bestCandidate.segmentId,
+      surfaceType: 'wood',
+      waterDepth: 0,
+      isBridge: true,
+      isDeepWater: false,
+      slopeAngle: bestCandidate.crownSlope,
+    };
   }
 
   // -------------------------------------------------------------
@@ -1281,6 +1264,26 @@ export function createPlatformerCourse(scene: THREE.Scene, seed = 42): Platforme
         feature: 'runup',
         targetLookAhead: _camLookTarget,
       };
+    }
+
+    // Explicit fork node metadata is more reliable than sample labels: the nearest
+    // sample can belong to the run-up or the first ramp even inside the junction.
+    const splitNode = data.nodes.find((node) => node.feature === 'split');
+    if (
+      splitNode &&
+      Math.hypot(charPos.x - splitNode.position.x, charPos.z - splitNode.position.z) < 2.1
+    ) {
+      currentFeature = 'split';
+    }
+
+    // As with the fork, the crest's nearest sample may still be labelled ramp.
+    // Promote the authored takeoff node locally so airborne framing starts on time.
+    const takeoffNode = data.nodes.find((node) => node.feature === 'takeoff');
+    if (
+      takeoffNode &&
+      Math.hypot(charPos.x - takeoffNode.position.x, charPos.z - takeoffNode.position.z) < 1.35
+    ) {
+      currentFeature = 'takeoff';
     }
 
     // Dynamic anticipation based on upcoming course landmark

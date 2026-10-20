@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import * as THREE from 'three';
 import {
   generateCourseData,
@@ -24,6 +24,39 @@ import { createDustSystem, canEmitSprintDust } from '../scene/dustSystem';
 import { createThirdPersonCamera } from '../scene/thirdPersonCamera';
 import { createHeroKnight } from '../scene/heroCharacter';
 
+// Three.js CanvasTexture only needs a canvas-like image object for these headless
+// lifecycle/material tests. Real pixel output remains a browser visual-QA concern.
+function createHeadlessCanvas(): HTMLCanvasElement {
+  const gradient = { addColorStop: vi.fn() };
+  const context = {
+    clearRect: vi.fn(),
+    createRadialGradient: vi.fn(() => gradient),
+    fillRect: vi.fn(),
+    beginPath: vi.fn(),
+    arc: vi.fn(),
+    fill: vi.fn(),
+    fillStyle: '',
+  };
+  return {
+    width: 0,
+    height: 0,
+    getContext: vi.fn(() => context),
+  } as unknown as HTMLCanvasElement;
+}
+
+beforeEach(() => {
+  vi.stubGlobal('document', {
+    createElement: vi.fn((tagName: string) => {
+      if (tagName !== 'canvas') throw new Error(`Unsupported headless element: ${tagName}`);
+      return createHeadlessCanvas();
+    }),
+  });
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 describe('Wild Meadow Platformer Course & Core Systems', () => {
   // 1. Determinism and Variation
   it('produces identical course data for identical seeds and controlled variation for different seeds', () => {
@@ -40,9 +73,12 @@ describe('Wild Meadow Platformer Course & Core Systems', () => {
       expect(courseA1.nodes[i].position.z).toBeCloseTo(courseA2.nodes[i].position.z, 5);
     }
 
-    // Different seed produces controlled variations within bounds
-    expect(courseA1.takeoffPoint.x).not.toBe(courseB.takeoffPoint.x);
-    expect(Math.abs(courseA1.takeoffPoint.x - courseB.takeoffPoint.x)).toBeLessThan(1.5);
+    // Different seeds vary authored, safety-constrained course nodes. The takeoff
+    // X coordinate is intentionally fixed to preserve the validated jump corridor.
+    const splitA = courseA1.nodes.find((node) => node.id === 'split')!;
+    const splitB = courseB.nodes.find((node) => node.id === 'split')!;
+    expect(splitA.position.z).not.toBe(splitB.position.z);
+    expect(Math.abs(splitA.position.z - splitB.position.z)).toBeLessThanOrEqual(0.4);
   });
 
   // 2. Topology and Connectivity
@@ -52,7 +88,7 @@ describe('Wild Meadow Platformer Course & Core Systems', () => {
 
     expect(segmentIds).toContain('seg_runup');
     expect(segmentIds).toContain('seg_skill_ramp');
-    expect(segmentIds).toContain('seg_skill_gap');
+    expect(segmentIds).toContain('seg_air_gap');
     expect(segmentIds).toContain('seg_skill_banked');
     expect(segmentIds).toContain('seg_safe_route');
     expect(segmentIds).toContain('seg_return_finish');
@@ -137,6 +173,7 @@ describe('Wild Meadow Platformer Course & Core Systems', () => {
     );
 
     expect(query.isBridge).toBe(true);
+    expect(query.surfaceId).toBe('seg_skill_ramp');
     expect(query.height).toBeCloseTo(midSample.point.y, 1);
 
     course.dispose();
@@ -164,7 +201,8 @@ describe('Wild Meadow Platformer Course & Core Systems', () => {
     expect(upperQuery.height).toBeCloseTo(elevatedY, 1);
 
     // Case 2: Character beneath the elevated deck on ground level
-    const lowerQuery = resolver(testX, testZ, groundTerrainY, 0, true, 'ground');
+    // Even a stale previous course ID must not pull the character up from below.
+    const lowerQuery = resolver(testX, testZ, groundTerrainY, 0, true, 'seg_skill_ramp');
     expect(lowerQuery.isBridge).toBe(false); // Ground terrain, not the elevated deck!
     expect(lowerQuery.height).toBeCloseTo(groundTerrainY, 2);
 
@@ -296,9 +334,12 @@ describe('Wild Meadow Platformer Course & Core Systems', () => {
 
     // Manual orbit cooldown retains user camera angles
     camCtrl.onPointerDrag(100, 50);
-    const userYaw = camCtrl.yaw;
+    const yawBeforeUpdate = camCtrl.yaw;
     camCtrl.update(0.016, new THREE.Vector3(15, 0.5, 0), 0, 5.0, 0, undefined, true, 0, splitContext);
-    expect(camCtrl.yaw).toBeCloseTo(userYaw, 1); // User drag not overridden immediately
+    // Manual drag should begin rotating smoothly in the requested direction; route
+    // auto-follow must not reverse it during the two-second manual-orbit grace period.
+    expect(camCtrl.yaw).toBeLessThan(yawBeforeUpdate);
+    expect(Math.abs(camCtrl.yaw - yawBeforeUpdate)).toBeLessThan(0.15);
 
     course.dispose();
   });

@@ -173,6 +173,8 @@ export interface WalkableSurface {
   isBridge: boolean;
   isDeepWater: boolean;
   slopeAngle: number;
+  /** Stable support identity for state-aware multi-level surface resolution. */
+  surfaceId?: string;
 }
 
 // -------------------------------------------------------------
