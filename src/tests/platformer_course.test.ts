@@ -332,9 +332,12 @@ describe('Wild Meadow Platformer Course & Core Systems', () => {
 
     // Manual orbit cooldown retains user camera angles
     camCtrl.onPointerDrag(100, 50);
-    const userYaw = camCtrl.yaw;
+    const yawBeforeUpdate = camCtrl.yaw;
     camCtrl.update(0.016, new THREE.Vector3(15, 0.5, 0), 0, 5.0, 0, undefined, true, 0, splitContext);
-    expect(camCtrl.yaw).toBeCloseTo(userYaw, 1); // User drag not overridden immediately
+    // Manual drag should begin rotating smoothly in the requested direction; route
+    // auto-follow must not reverse it during the two-second manual-orbit grace period.
+    expect(camCtrl.yaw).toBeLessThan(yawBeforeUpdate);
+    expect(Math.abs(camCtrl.yaw - yawBeforeUpdate)).toBeLessThan(0.15);
 
     course.dispose();
   });
