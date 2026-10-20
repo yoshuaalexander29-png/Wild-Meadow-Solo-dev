@@ -11,13 +11,29 @@ export interface ThirdPersonCamera {
   onPointerDrag: (deltaX: number, deltaY: number) => void;
   onZoom: (deltaZoom: number) => void;
   addTrauma: (amount: number) => void;
-  update: (delta: number, characterPos: THREE.Vector3, timelineTime: number, characterSpeed?: number, characterHeading?: number) => void;
+  update: (
+    delta: number,
+    characterPos: THREE.Vector3,
+    timelineTime: number,
+    characterSpeed?: number,
+    characterHeading?: number,
+    characterVelocity?: THREE.Vector3,
+    characterGrounded?: boolean
+  ) => void;
 }
 
 const _camTarget = new THREE.Vector3();
+const _desiredTarget = new THREE.Vector3();
+const _travelDirection = new THREE.Vector3();
 const _idealPos = new THREE.Vector3();
 const _currentPos = new THREE.Vector3();
 const _shakeOffset = new THREE.Vector3();
+
+/** Signed shortest angular difference from `from` to `to`, in radians. */
+function shortestAngleDelta(to: number, from: number): number {
+  const fullTurn = Math.PI * 2;
+  return ((to - from + Math.PI) % fullTurn + fullTurn) % fullTurn - Math.PI;
+}
 
 export function createThirdPersonCamera(
   camera: THREE.PerspectiveCamera,
@@ -33,6 +49,10 @@ export function createThirdPersonCamera(
 
   let isCinematic = false;
   let trauma = 0.0;
+  // Manual orbit always wins for a short grace period. This prevents auto-follow
+  // from fighting touch/mouse input while still allowing the camera to recover.
+  let manualOrbitCooldown = 0;
+  let hasInitializedLookTarget = false;
 
   // Initialize camera
   camera.fov = 45.0;
@@ -40,6 +60,8 @@ export function createThirdPersonCamera(
   camera.updateProjectionMatrix();
 
   _camTarget.copy(initialTarget).add(new THREE.Vector3(0, 1.25, 0));
+  _desiredTarget.copy(_camTarget);
+  hasInitializedLookTarget = true;
   _currentPos.set(
     _camTarget.x + Math.sin(currentYaw) * Math.cos(currentPitch) * currentDistance,
     _camTarget.y + Math.sin(currentPitch) * currentDistance,
@@ -56,6 +78,7 @@ export function createThirdPersonCamera(
     set yaw(v: number) {
       targetYaw = v;
       currentYaw = v;
+      manualOrbitCooldown = 0;
     },
     get pitch() {
       return currentPitch;
@@ -82,6 +105,7 @@ export function createThirdPersonCamera(
     },
     onPointerDrag: (deltaX: number, deltaY: number) => {
       isCinematic = false;
+      manualOrbitCooldown = 2.0;
       // Controlled, smooth manual orbit sensitivity
       targetYaw -= deltaX * 0.0035;
       targetPitch = THREE.MathUtils.clamp(targetPitch + deltaY * 0.0028, 0.05, 0.85);
@@ -94,18 +118,60 @@ export function createThirdPersonCamera(
       delta: number,
       characterPos: THREE.Vector3,
       _timelineTime: number,
-      _characterSpeed = 0,
-      _characterHeading?: number
+      characterSpeed = 0,
+      characterHeading?: number,
+      characterVelocity?: THREE.Vector3,
+      characterGrounded = true
     ) => {
-      // Stable, comfortable damping: NO autonomous orbiting or forced rotation
       const dt = THREE.MathUtils.clamp(delta, 0.001, 0.05);
+      manualOrbitCooldown = Math.max(0, manualOrbitCooldown - dt);
 
-      currentYaw = THREE.MathUtils.damp(currentYaw, targetYaw, 16.0, dt);
+      const horizontalVelocity = characterVelocity
+        ? Math.hypot(characterVelocity.x, characterVelocity.z)
+        : 0;
+      const travelSpeed = Math.max(characterSpeed, horizontalVelocity);
+
+      // Prefer measured velocity when it is meaningful; fall back to the model's
+      // heading for the take-off apex, brief stops, and controllers without velocity.
+      if (characterVelocity && horizontalVelocity > 0.8) {
+        _travelDirection.set(characterVelocity.x, 0, characterVelocity.z).normalize();
+      } else if (characterHeading !== undefined && Number.isFinite(characterHeading)) {
+        _travelDirection.set(Math.sin(characterHeading), 0, Math.cos(characterHeading));
+      } else {
+        _travelDirection.set(-Math.sin(currentYaw), 0, -Math.cos(currentYaw));
+      }
+
+      // The camera sits behind the travel direction. Limit automatic yaw speed so
+      // strafing/reversals cannot whip the view around, and let manual orbit take priority.
+      if (manualOrbitCooldown <= 0 && travelSpeed > 2.6 && characterHeading !== undefined) {
+        const desiredYaw = Math.atan2(_travelDirection.x, _travelDirection.z) + Math.PI;
+        const yawError = shortestAngleDelta(desiredYaw, targetYaw);
+        const autoResponse = 1 - Math.exp(-1.35 * dt);
+        const maxAutoTurn = 1.15 * dt;
+        targetYaw += THREE.MathUtils.clamp(yawError * autoResponse, -maxAutoTurn, maxAutoTurn);
+      }
+
+      currentYaw += shortestAngleDelta(targetYaw, currentYaw) * (1 - Math.exp(-16.0 * dt));
       currentPitch = THREE.MathUtils.damp(currentPitch, targetPitch, 16.0, dt);
       currentDistance = THREE.MathUtils.damp(currentDistance, targetDistance, 14.0, dt);
 
-      // Stable focus point on knight upper torso
-      const targetLook = _camTarget.set(characterPos.x, characterPos.y + 1.25, characterPos.z);
+      // Velocity-aware look-ahead makes the route visible before the knight reaches it.
+      // Keep the offset bounded, and damp the focus independently to avoid jitter.
+      const lookAheadDistance = THREE.MathUtils.clamp(travelSpeed * 0.2, 0, 1.8);
+      _desiredTarget.set(
+        characterPos.x + _travelDirection.x * lookAheadDistance,
+        characterPos.y + 1.25 + (!characterGrounded && characterVelocity
+          ? THREE.MathUtils.clamp(characterVelocity.y * 0.035, -0.18, 0.28)
+          : 0),
+        characterPos.z + _travelDirection.z * lookAheadDistance
+      );
+      if (!hasInitializedLookTarget) {
+        _camTarget.copy(_desiredTarget);
+        hasInitializedLookTarget = true;
+      } else {
+        _camTarget.lerp(_desiredTarget, 1 - Math.exp(-7.5 * dt));
+      }
+      const targetLook = _camTarget;
 
       const cosPitch = Math.cos(currentPitch);
       const sinPitch = Math.sin(currentPitch);
@@ -123,7 +189,7 @@ export function createThirdPersonCamera(
         const testZ = targetLook.z + cosYaw * cosPitch * testD;
         const groundH = getTerrainHeight(testX, testZ);
         if (testY < groundH + 0.45) {
-          safeDist = Math.max(3.0, (currentDistance * (s - 1)) / testSteps);
+          safeDist = Math.max(1.1, (currentDistance * (s - 1)) / testSteps);
           break;
         }
       }
@@ -153,14 +219,13 @@ export function createThirdPersonCamera(
         _shakeOffset.set(0, 0, 0);
       }
 
-      // Direct, smooth follow without rubber-banding
-      _currentPos.lerp(_idealPos, Math.min(1.0, dt * 14.0));
+      // Exponential smoothing is frame-rate independent and remains stable after hitches.
+      _currentPos.lerp(_idealPos, 1 - Math.exp(-14.0 * dt));
 
-      // Stable horizon and fixed 45 degree FOV
-      camera.fov = 45.0;
+      // FOV is intentionally fixed at initialization; do not rebuild the projection
+      // matrix every frame when no projection parameter has changed.
       camera.position.copy(_currentPos).add(_shakeOffset);
       camera.lookAt(targetLook);
-      camera.updateProjectionMatrix();
     },
   };
 }
