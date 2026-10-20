@@ -25,7 +25,8 @@ import {
 
 declare const process: { exit: (code?: number) => never };
 
-console.log('=== RUNNING WILD MEADOW VERIFICATION AUDIT ===\n');
+console.log('=== RUNNING WILD MEADOW VERIFICATION AUDIT ===
+');
 
 // 1. Brown Cube Removal Check
 console.log('Test 1: Brown Cube & Crate Collider Removal');
@@ -40,7 +41,8 @@ if (crateCollider) {
 }
 
 // 2. Four Bridge Corners Grounding Check
-console.log('\nTest 2: Four Bridge Corners Grounding Validation');
+console.log('
+Test 2: Four Bridge Corners Grounding Validation');
 const corners = calculateBridgeCorners(SPIRITED_AWAY_BRIDGE_LAYOUT);
 const cornerKeys = ['nearLeft', 'nearRight', 'farLeft', 'farRight'] as const;
 
@@ -69,7 +71,8 @@ if (!allGrounded) {
 }
 
 // 3. Water Hazard & Dry Ground Safety Check
-console.log('\nTest 3: Water Hazard & Dry Ground Validation');
+console.log('
+Test 3: Water Hazard & Dry Ground Validation');
 const testPositions = [
   { name: 'Campsite Hearth', x: 2.2, z: 2.2 },
   { name: 'Safe Respawn Point', x: 1.2, z: 0.2 },
@@ -105,7 +108,8 @@ if (!waterSafetyPassed) {
 }
 
 // 4. Bridge Traversal Continuous Elevation Check
-console.log('\nTest 4: Bridge Traversal Continuity Check');
+console.log('
+Test 4: Bridge Traversal Continuity Check');
 const sampleSteps = 20;
 let lastY: number | null = null;
 let maxStepDiff = 0;
@@ -136,7 +140,8 @@ if (maxStepDiff > 0.35) {
  
 // 5. Vertical ownership: an upper bridge deck must not magnetically catch a
 // character passing underneath, while a descending character above the deck may land.
-console.log('\nTest 5: Height-aware bridge support resolution');
+console.log('
+Test 5: Height-aware bridge support resolution');
 const bridgeX = BRIDGE_CENTER_X;
 const bridgeZ = BRIDGE_CENTER_Z;
 const deck = getBridgeDeckHeight(bridgeX, bridgeZ);
@@ -169,7 +174,8 @@ console.log('PASS: Surface support respects vertical position and descent direct
 
  
 // 6. Course mesh/collision share one route source and the lane has a bounded footprint.
-console.log('\nTest 6: Shared route and collision surface');
+console.log('
+Test 6: Shared route and collision surface');
 const routeCenter = getWalkableSurface(5.5, -1.0);
 const offRoute = getWalkableSurface(5.5, 3.5);
 console.log(`  Mainline center: ${routeCenter.surfaceType} at ${routeCenter.height.toFixed(2)}m`);
@@ -185,7 +191,8 @@ if (offRoute.surfaceType === 'course') {
 console.log('PASS: The lane has a queryable surface with a bounded width.');
 
 
-console.log('\nTest 7: Authored course topology, obstacle clearance, and shortcut value');
+console.log('
+Test 7: Authored course topology, obstacle clearance, and shortcut value');
 if (COURSE_ROUTES.length !== 2) {
   console.error(`FAIL: Expected one main route and one shortcut; found ${COURSE_ROUTES.length} routes.`);
   process.exit(1);
@@ -240,7 +247,8 @@ for (const route of COURSE_ROUTES) {
 console.log('PASS: Both routes have sampled obstacle/brook clearance, a nearby entry, and a shorter shortcut.');
 
 
-console.log('\nTest 8: Course ramp profile and support normal');
+console.log('
+Test 8: Course ramp profile and support normal');
 const mainlineForMerge = COURSE_ROUTES.find((route) => route.name === 'Meadow Mainline');
 const shortcutForMerge = COURSE_ROUTES.find((route) => route.name === 'Canopy Cut');
 if (!mainlineForMerge || !shortcutForMerge ||
@@ -309,7 +317,8 @@ console.log(`PASS: Course lift profiles are valid; sampled waypoint grades stay 
 
 
  
-console.log('\nTest 9: Explicit mainline jump gap and shortcut bypass');
+console.log('
+Test 9: Explicit mainline jump gap and shortcut bypass');
 const jumpGap = mainRoute.gaps?.[0];
 if (!jumpGap) {
   console.error('FAIL: Mainline has no authored jump gap.');
@@ -354,7 +363,8 @@ console.log('PASS: Gap is physically absent from the shared support query and a 
 
 
  
-console.log('\nTest 10: Directional camera anticipation');
+console.log('
+Test 10: Directional camera anticipation');
 const approachPoint = mainCurveWithLift.getPointAt(Math.max(0, jumpGap[0] - 0.015));
 const approachTangent = mainCurveWithLift.getTangentAt(Math.max(0, jumpGap[0] - 0.015)).setY(0).normalize();
 const anticipationStartX = approachPoint.x - approachTangent.x * 6.0;
@@ -373,7 +383,8 @@ if (lookingTowardGap <= 0.1 || lookingAway !== 0) {
 console.log('PASS: Camera cue increases look-ahead only when approaching the jump with route alignment.');
 
 
-console.log('\nTest 11: Rendered boardwalk and support-query height agreement');
+console.log('
+Test 11: Rendered boardwalk and support-query height agreement');
 const boardwalkPoint = mainCurveWithLift.getPointAt(0.55);
 const boardwalkProbe = getCourseSurface(boardwalkPoint.x, boardwalkPoint.z, getTerrainHeight);
 const expectedBoardwalkOffset = getCourseBoardwalkOffset(boardwalkPoint.y);
@@ -390,7 +401,8 @@ if (boardwalkHeightError > 0.001) {
 }
 console.log('PASS: Rendered boardwalk and collision support share the same deck-height formula.');
 
-console.log('\nTest 12: Height-gated elevated course support');
+console.log('
+Test 12: Height-gated elevated course support');
 const elevatedProbe = getCourseSurface(24.5, -9.0, getTerrainHeight);
 if (!elevatedProbe) {
   console.error('FAIL: Elevated course probe has no shared support surface.');
@@ -413,7 +425,8 @@ if (underDeck.surfaceType === 'course' || descendingAboveDeck.surfaceType !== 'c
 }
 console.log('PASS: Course deck support is one-sided and height-aware.');
 
-console.log('\nTest 13: Missed-jump recovery and authored route junction support');
+console.log('
+Test 13: Missed-jump recovery and authored route junction support');
 const missedGapSupport = getWalkableSurface(gapCenter.x, gapCenter.z, {
   characterY: getTerrainHeight(gapCenter.x, gapCenter.z) + gapCenter.y + COURSE_SURFACE_LIFT + 0.35,
   isGrounded: false,
@@ -434,7 +447,8 @@ if (!forkSupport || !mergeSupport
 console.log(`  Missed-gap fallback: ${missedGapSupport.surfaceType}; fork support: ${forkSupport.height.toFixed(3)}m; merge support: ${mergeSupport.height.toFixed(3)}m`);
 console.log('PASS: Missed jump falls back to the lower world and fork/merge support heights remain queryable.');
 
-console.log('\nTest 14: Collision footprint, exact-centre recovery and meadow boundary');
+console.log('
+Test 14: Collision footprint, exact-centre recovery and meadow boundary');
 const exactCentreCollision = resolveCollision(-16, -18, 0.42, 0, 0);
 const recoveredDistance = Math.hypot(exactCentreCollision.x + 16, exactCentreCollision.z + 18);
 if (!exactCentreCollision.collided || recoveredDistance < 2.3 + 0.42 - 1e-6) {
@@ -450,7 +464,8 @@ if (!boundaryCollision.collided || boundaryRadius > 48.000001 || boundaryCollisi
 console.log(`  Exact-centre collider recovery: ${recoveredDistance.toFixed(3)}m from obstacle centre; boundary radius: ${boundaryRadius.toFixed(3)}m`);
 console.log('PASS: Collision resolution handles exact-centre overlap and outward boundary movement.');
 
-console.log('\nTest 15: Full-controller horizontal motion kernel and response timing');
+console.log('
+Test 15: Full-controller horizontal motion kernel and response timing');
 function simulateHorizontalMotion(
   startX: number,
   startZ: number,
@@ -494,7 +509,8 @@ console.log(`  0.5s braking from 7m/s at 30/60/120 FPS: ${brakingResults.map(v =
 console.log(`  1s air steering to 7m/s at 30/60/120 FPS: ${airSteerResults.map(v => v.toFixed(4)).join(' / ')} m/s`);
 console.log('PASS: live-controller horizontal response kernel is deterministic across tested render rates.');
 
-console.log('\nTest 16: Centralized game-feel values and jump-assist timing');
+console.log('
+Test 16: Centralized game-feel values and jump-assist timing');
 const hitchDelta = clampControllerDelta(0.12);
 const minimumDelta = clampControllerDelta(0.0001);
 const invalidDelta = clampControllerDelta(Number.NaN);
@@ -545,7 +561,8 @@ console.log(`  Coyote: ${GAME_FEEL.coyoteTimeSeconds.toFixed(2)}s; buffer: ${GAM
 console.log(`  One-second air-steering speed at 30/60/120 FPS: ${response30.toFixed(4)} / ${response60.toFixed(4)} / ${response120.toFixed(4)} m/s`);
 console.log('PASS: Coyote/buffer clocks and the controller movement-response helper meet their timing contracts.');
 
-console.log('\nTest 17: Apex assistance does not slow the descent');
+console.log('
+Test 17: Apex assistance does not slow the descent');
 const risingNearApex = advanceVerticalMotion(0.5, 1 / 120);
 const fallingNearGround = advanceVerticalMotion(-0.5, 1 / 120);
 const expectedRisingVelocity = 0.5 - GAME_FEEL.jumpGravity * GAME_FEEL.jumpApexGravityScale / 120;
@@ -558,7 +575,8 @@ if (Math.abs(risingNearApex.velocity - expectedRisingVelocity) > 1e-8
 console.log(`  Rising near apex: ${risingNearApex.velocity.toFixed(4)}m/s; descending: ${fallingNearGround.velocity.toFixed(4)}m/s`);
 console.log('PASS: Apex assistance widens the rising apex window without softening descent.');
 
-console.log('\nTest 18: Shared jump trajectory across frame rates and frame hitches');
+console.log('
+Test 18: Shared jump trajectory across frame rates and frame hitches');
 function simulateJump(frameDelta: number) {
   let y = 0;
   let velocity: number = GAME_FEEL.jumpInitialSpeed;
@@ -598,7 +616,8 @@ if (jumpRuns.find((run) => run.label === '30 FPS')!.distance < 4.0) {
 }
 console.log('PASS: Gameplay and test share the same bounded-substep integrator; jump range remains within the current tolerance.');
 
-console.log('\nTest 19: Course scene cleanup is complete and idempotent');
+console.log('
+Test 19: Course scene cleanup is complete and idempotent');
 const lifecycleScene = new THREE.Scene();
 const lifecycleCourse = createMeadowCourse(lifecycleScene);
 const ownedObjectCount = lifecycleScene.children.length;
@@ -614,10 +633,12 @@ if (lifecycleScene.children.length !== 0) {
 }
 console.log(`PASS: ${ownedObjectCount} course scene objects removed; repeated disposal did not throw.`);
 
-console.log('\n=== ALL AUDIT TESTS PASSED SUCCESSFULLY ===');
+console.log('
+=== ALL AUDIT TESTS PASSED SUCCESSFULLY ===');
 
 
-console.log('\\nTest 14: Authored gap reach envelope (vertical production integrator + route geometry)');
+console.log('\
+Test 14: Authored gap reach envelope (vertical production integrator + route geometry)');
 const reachGap = mainRoute.gaps?.[0];
 if (!reachGap) {
   console.error('FAIL: No authored mainline gap to measure.');
@@ -661,7 +682,8 @@ if (reachTime >= 2.0 || !(walkReach < reachDistance) || runReach < conservativeR
 }
 console.log('PASS: Authored gap fits the nominal run/sprint reach envelope; walking speed is intentionally insufficient. This is a vertical-integrator/constant-horizontal-speed estimate, not an end-to-end controller jump.');
 
-console.log('\\nTest 15: Live production controller update at 30/60/120 FPS');
+console.log('\
+Test 15: Live production controller update at 30/60/120 FPS');
 const controllerRuns: Array<{ fps: number; travel: number; stopSpeed: number }> = [];
 for (const fps of [30, 60, 120]) {
   const root = new THREE.Group();
@@ -691,7 +713,8 @@ if (controllerTravelSpread > 0.25 || controllerRuns.some(r => r.travel < 4.5 || 
 }
 console.log('PASS: The actual character-controller update path accelerates and brakes consistently at 30/60/120 FPS in an obstacle-free terrain fixture.');
 
-console.log('\\nTest 16: Production controller buffered jump survives until landing');
+console.log('\
+Test 16: Production controller buffered jump survives until landing');
 {
   const root = new THREE.Group();
   root.position.set(40, getWalkableSurface(40, 40).height, 40);
