@@ -1,0 +1,28 @@
+name: Verify Wild Meadow
+
+on:
+  push:
+    branches:
+      - main
+      - improve/adaptive-platformer-camera
+      - fix/course-validation-and-runtime
+      - fix/course-surface-camera-repair
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+      - name: Install locked dependencies
+        run: bun install --frozen-lockfile
+      - name: Run lint, tests, and production build
+        run: bun run verify
