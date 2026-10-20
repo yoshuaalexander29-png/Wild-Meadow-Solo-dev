@@ -1,6 +1,10 @@
+import * as THREE from 'three';
 import {
   getTerrainHeight,
   getWalkableSurface,
+  getDistanceToStream,
+  STREAM_BANK_WIDTH,
+  SAFE_RESPAWN,
   getBridgeDeckHeight,
   isInsideWaterBody,
   OBSTACLES,
@@ -9,6 +13,7 @@ import {
   BRIDGE_ROT_Y,
   BRIDGE_HALF_LENGTH,
 } from '../scene/terrain';
+import { MEADOW_COURSE_ROUTES } from '../scene/courseSystem';
 import {
   calculateBridgeCorners,
   SPIRITED_AWAY_BRIDGE_LAYOUT,
@@ -174,5 +179,60 @@ if (offRoute.surfaceType === 'course') {
   process.exit(1);
 }
 console.log('PASS: The lane has a queryable surface with a bounded width.');
+
+
+console.log('\nTest 6: Authored course topology, obstacle clearance, and shortcut value');
+if (MEADOW_COURSE_ROUTES.length !== 2) {
+  console.error(`FAIL: Expected one main route and one shortcut; found ${MEADOW_COURSE_ROUTES.length} routes.`);
+  process.exit(1);
+}
+const mainRoute = MEADOW_COURSE_ROUTES.find((route) => route.name === 'Meadow Mainline');
+const shortcutRoute = MEADOW_COURSE_ROUTES.find((route) => route.name === 'Canopy Cut');
+if (!mainRoute || !shortcutRoute) {
+  console.error('FAIL: Required mainline or shortcut route is missing.');
+  process.exit(1);
+}
+const startPoint = mainRoute.points[0];
+if (Math.hypot(startPoint[0] - SAFE_RESPAWN.x, startPoint[1] - SAFE_RESPAWN.z) > 5.0) {
+  console.error('FAIL: Course entry is too far from the safe spawn.');
+  process.exit(1);
+}
+const polylineLength = (points: Array<[number, number]>) => points.slice(1).reduce(
+  (length, point, index) => length + Math.hypot(point[0] - points[index][0], point[1] - points[index][1]),
+  0,
+);
+const mainDetour = mainRoute.points.slice(3, 8);
+const shortcutLength = polylineLength(shortcutRoute.points);
+const detourLength = polylineLength(mainDetour);
+console.log(`  Main route points: ${mainRoute.points.length}; shortcut points: ${shortcutRoute.points.length}`);
+console.log(`  Shortcut polyline: ${shortcutLength.toFixed(1)}m; corresponding main detour: ${detourLength.toFixed(1)}m`);
+if (shortcutLength >= detourLength * 0.92) {
+  console.error('FAIL: Shortcut is not meaningfully shorter than the main route.');
+  process.exit(1);
+}
+for (const route of MEADOW_COURSE_ROUTES) {
+  const curve = new THREE.CatmullRomCurve3(
+    route.points.map(([x, z]) => new THREE.Vector3(x, getTerrainHeight(x, z), z)),
+    false,
+    'centripetal',
+    0.35,
+  );
+  for (let sample = 0; sample <= 120; sample++) {
+    const point = curve.getPointAt(sample / 120);
+    const clearance = route.width * 0.5 + 0.35;
+    const blocker = OBSTACLES.find((obstacle) =>
+      Math.hypot(point.x - obstacle.x, point.z - obstacle.z) < obstacle.radius + clearance
+    );
+    if (blocker) {
+      console.error(`FAIL: ${route.name} intersects obstacle ${blocker.label ?? 'unnamed'} near (${point.x.toFixed(1)}, ${point.z.toFixed(1)}).`);
+      process.exit(1);
+    }
+    if (getDistanceToStream(point.x, point.z) < STREAM_BANK_WIDTH + route.width * 0.5 + 0.25) {
+      console.error(`FAIL: ${route.name} lacks brook clearance near (${point.x.toFixed(1)}, ${point.z.toFixed(1)}).`);
+      process.exit(1);
+    }
+  }
+}
+console.log('PASS: Both routes have sampled obstacle/brook clearance, a nearby entry, and a shorter shortcut.');
 
 console.log('\n=== ALL AUDIT TESTS PASSED SUCCESSFULLY ===');
