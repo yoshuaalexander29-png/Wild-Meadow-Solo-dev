@@ -53,7 +53,9 @@ export function advanceVerticalMotion(velocity: number, deltaSeconds: number): V
   let displacement = 0;
   while (remaining > 1e-8) {
     const dt = Math.min(remaining, GAME_FEEL.maxVerticalPhysicsStepSeconds);
-    const gravityScale = Math.abs(nextVelocity) < GAME_FEEL.jumpApexHangThreshold
+    // Apex assistance applies only while rising near the apex. Applying it
+    // to small-magnitude downward velocity also slows the landing phase.
+    const gravityScale = nextVelocity > 0 && nextVelocity < GAME_FEEL.jumpApexHangThreshold
       ? GAME_FEEL.jumpApexGravityScale
       : 1;
     nextVelocity -= GAME_FEEL.jumpGravity * gravityScale * dt;
