@@ -7,6 +7,7 @@ import {
 } from './terrain';
 import { createDustSystem, type DustSystem } from './dustSystem';
 import { meadowAudio } from '../audio/proceduralAudio';
+import { advanceVerticalMotion, GAME_FEEL, updateJumpAssistTimers } from './gameFeel';
 import type { MovementInput } from '../types';
 
 export interface CharacterControllerCallbacks {
@@ -31,41 +32,6 @@ export interface CharacterController {
   triggerEmote: () => void;
   respawn: () => void;
   dispose: () => void;
-}
-
-/**
- * Shared jump integration used by the controller and deterministic regression checks.
- * Substeps cap the integration interval at 1/120 s so frame hitches do not create
- * oversized gravity steps and 30/60/120 FPS trajectories remain comparable.
- */
-export const JUMP_GRAVITY = 21.0;
-export const JUMP_INITIAL_SPEED = 7.2;
-export const JUMP_APEX_HANG_THRESHOLD = 1.8;
-export const JUMP_APEX_GRAVITY_SCALE = 0.65;
-export const JUMP_PHYSICS_MAX_STEP = 1 / 120;
-
-export interface VerticalMotionStep {
-  velocity: number;
-  displacement: number;
-}
-
-export function advanceVerticalMotion(velocity: number, deltaSeconds: number): VerticalMotionStep {
-  if (!Number.isFinite(velocity) || !Number.isFinite(deltaSeconds) || deltaSeconds <= 0) {
-    return { velocity, displacement: 0 };
-  }
-  let remaining = deltaSeconds;
-  let nextVelocity = velocity;
-  let displacement = 0;
-  while (remaining > 1e-8) {
-    const dt = Math.min(remaining, JUMP_PHYSICS_MAX_STEP);
-    const gravityScale = Math.abs(nextVelocity) < JUMP_APEX_HANG_THRESHOLD
-      ? JUMP_APEX_GRAVITY_SCALE
-      : 1;
-    nextVelocity -= JUMP_GRAVITY * gravityScale * dt;
-    displacement += nextVelocity * dt;
-    remaining -= dt;
-  }
-  return { velocity: nextVelocity, displacement };
 }
 
 const _camForward = new THREE.Vector3();
@@ -246,7 +212,7 @@ export function createCharacterController(
     isGrounded = false;
     coyoteTimer = 0;
     jumpBufferTimer = 0;
-    verticalVelocity = JUMP_INITIAL_SPEED;
+    verticalVelocity = GAME_FEEL.jumpInitialSpeed;
 
     if (jumpAction) {
       jumpAction.timeScale = 1.15;
@@ -415,20 +381,22 @@ export function createCharacterController(
         }
       }
 
-      // Coyote time & Jump buffering
-      if (isGrounded) {
-        coyoteTimer = 0.16;
-      } else {
-        coyoteTimer = Math.max(0, coyoteTimer - dt);
-      }
-      if (jumpBufferTimer > 0) {
-        jumpBufferTimer = Math.max(0, jumpBufferTimer - dt);
-        if (isGrounded) {
-          doJump();
-        }
+      // Coyote time & jump buffering are centralized and independently testable.
+      const jumpAssist = updateJumpAssistTimers(
+        coyoteTimer,
+        jumpBufferTimer,
+        isGrounded,
+        isRolling,
+        dt,
+      );
+      coyoteTimer = jumpAssist.coyoteTimer;
+      jumpBufferTimer = jumpAssist.jumpBufferTimer;
+      if (jumpAssist.consumeBufferedJump) {
+        doJump();
       }
 
-      if (jumpPressed && !isRolling) {
+      // Do not submit the same edge twice if it coincides with buffer consumption.
+      if (jumpPressed && !isRolling && !jumpAssist.consumeBufferedJump) {
         doJump();
       }
 
@@ -474,14 +442,19 @@ export function createCharacterController(
         _targetVel.set(0, 0, 0);
       }
 
-      // Responsive acceleration with surface friction
-      const accelRate = hasInput ? 18.0 : (isRolling ? 5.5 : 24.0);
+      // Keep displayed speed and actual movement response aligned. Exponential
+      // response is frame-rate independent; braking is deliberately stronger
+      // than acceleration, while air steering remains more restrained.
+      const accelRate = hasInput
+        ? GAME_FEEL.groundAcceleration
+        : (isRolling ? GAME_FEEL.rollingAcceleration : GAME_FEEL.groundBraking);
       currentSpeed = THREE.MathUtils.damp(currentSpeed, isRolling ? 8.0 : targetSpeed, accelRate, dt);
 
-      // Horizontal velocity interpolation
       if (!isRolling) {
-        const velLerpRate = isGrounded ? 18.0 : 10.0;
-        _currentVel.lerp(_targetVel, Math.min(1.0, dt * velLerpRate));
+        const velocityResponse = isGrounded
+          ? (hasInput ? GAME_FEEL.groundAcceleration : GAME_FEEL.groundBraking)
+          : GAME_FEEL.airControl;
+        _currentVel.lerp(_targetVel, 1 - Math.exp(-velocityResponse * dt));
       }
 
       // Smooth turning with natural banking
@@ -490,8 +463,8 @@ export function createCharacterController(
       while (diff > Math.PI) diff -= Math.PI * 2;
 
       const targetBank = THREE.MathUtils.clamp(-diff * (currentSpeed / 4.0) * 0.38, -0.24, 0.24);
-      currentBank = THREE.MathUtils.damp(currentBank, targetBank, 12.0, dt);
-      currentRotationY += diff * Math.min(1.0, dt * 18.0);
+      currentBank = THREE.MathUtils.damp(currentBank, targetBank, GAME_FEEL.bankResponse, dt);
+      currentRotationY += diff * (1 - Math.exp(-GAME_FEEL.groundTurnResponse * dt));
 
       // Terrain slope pitch adaptation
       const surface = getWalkableSurface(root.position.x, root.position.z);
