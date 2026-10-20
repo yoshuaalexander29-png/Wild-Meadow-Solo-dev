@@ -26,30 +26,21 @@ type RouteDefinition = {
 const ROUTES: RouteDefinition[] = [
   {
     name: 'Meadow Mainline',
-    points: [[1.2, 0.2], [4.8, 3.4], [8.5, 5.0], [12.0, 8.0], [16.5, 11.5], [20.5, 14.2], [25.0, 13.0], [28.5, 9.0], [30.0, 4.0], [27.0, -0.5], [22.0, -2.0]],
-    width: 2.5,
-    edge: 0.18,
-    color: '#c9b98e',
-    accent: '#f4d77b',
-    rings: [0.23, 0.34, 0.45, 0.56, 0.68, 0.79],
+    points: [[5.5, -1.0], [9.5, -2.8], [14.5, -5.0], [19.5, -7.8], [24.5, -9.0], [29.5, -6.5], [32.0, -1.0], [33.0, 5.5], [31.5, 11.5], [29.0, 17.5], [24.0, 22.5], [18.0, 25.0], [12.0, 25.5], [7.0, 24.5]],
+    width: 2.9,
+    edge: 0.16,
+    color: '#d8c69a',
+    accent: '#e5b45a',
+    rings: [0.13, 0.62, 0.94],
   },
   {
     name: 'Canopy Cut',
-    points: [[12.0, 8.0], [12.8, 12.0], [16.0, 15.2], [20.5, 17.0], [24.0, 15.5], [25.0, 13.0]],
-    width: 1.85,
-    edge: 0.14,
-    color: '#8da88a',
-    accent: '#f4d77b',
-    rings: [0.28, 0.48, 0.68],
-  },
-  {
-    name: 'Brookside Return',
-    points: [[22.0, -2.0], [17.0, -3.0], [12.0, -2.0], [8.0, -0.2], [5.0, 1.0], [1.2, 0.2]],
-    width: 2.0,
-    edge: 0.14,
-    color: '#a9bda0',
-    accent: '#d5e7d5',
-    rings: [0.25, 0.5, 0.73],
+    points: [[19.5, -7.8], [21.0, -4.8], [24.0, -2.0], [28.5, 0.8], [32.0, 5.5]],
+    width: 2.25,
+    edge: 0.13,
+    color: '#a9c7b1',
+    accent: '#e5b45a',
+    rings: [0.52],
   },
 ];
 
@@ -68,13 +59,11 @@ function makeRibbon(
   const side = new THREE.Vector3();
   const tangent = new THREE.Vector3();
   const point = new THREE.Vector3();
-  const normal = new THREE.Vector3();
   for (let i = 0; i <= segments; i++) {
     const t = i / segments;
     curve.getPointAt(t, point);
     curve.getTangentAt(t, tangent).setY(0).normalize();
     side.crossVectors(_up, tangent).normalize();
-    const terrainY = getTerrainHeight(point.x, point.z);
     for (const edge of [-1, 1]) {
       const x = point.x + side.x * width * 0.5 * edge;
       const z = point.z + side.z * width * 0.5 * edge;
@@ -83,7 +72,7 @@ function makeRibbon(
     }
     if (i < segments) {
       const a = i * 2;
-      indices.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+      indices.push(a, a + 2, a + 1, a + 1, a + 2, a + 3);
     }
   }
   const geometry = new THREE.BufferGeometry();
@@ -156,31 +145,6 @@ export function createMeadowCourse(scene: THREE.Scene): MeadowCourse {
       ring.castShadow = true;
       scene.add(ring);
       owned.push(ring);
-    }
-  }
-
-  // Fork/merge gateposts: consistent timber-and-brass language marks the decision
-  // points from a third-person camera without oversized UI or high-contrast clutter.
-  const postMaterial = new THREE.MeshStandardMaterial({ color: '#70543a', roughness: 0.86 });
-  const capMaterial = new THREE.MeshStandardMaterial({
-    color: '#f4d77b', roughness: 0.42, metalness: 0.08,
-  });
-  const gatePoints: Array<[number, number]> = [[12.0, 8.0], [25.0, 13.0]];
-  for (const [x, z] of gatePoints) {
-    for (const side of [-1, 1]) {
-      const post = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.075, 0.105, 1.45, 8),
-        postMaterial,
-      );
-      post.position.set(x + side * 1.65, getTerrainHeight(x + side * 1.65, z) + 0.72, z);
-      post.castShadow = true;
-      scene.add(post);
-      owned.push(post);
-
-      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), capMaterial);
-      cap.position.set(post.position.x, post.position.y + 0.79, post.position.z);
-      scene.add(cap);
-      owned.push(cap);
     }
   }
 
