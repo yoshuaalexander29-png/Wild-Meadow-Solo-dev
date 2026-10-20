@@ -14,6 +14,7 @@ import {
   BRIDGE_HALF_LENGTH,
 } from '../scene/terrain';
 import { COURSE_ROUTES, getCourseSurface, getCourseAnticipation } from '../scene/courseLayout';
+import { advanceVerticalMotion, JUMP_INITIAL_SPEED } from '../scene/characterController';
 import {
   calculateBridgeCorners,
   SPIRITED_AWAY_BRIDGE_LAYOUT,
@@ -367,5 +368,46 @@ if (lookingTowardGap <= 0.1 || lookingAway !== 0) {
   process.exit(1);
 }
 console.log('PASS: Camera cue increases look-ahead only when approaching the jump with route alignment.');
+
+
+console.log('\nTest 11: Shared jump trajectory across frame rates and frame hitches');
+function simulateJump(frameDelta: number) {
+  let y = 0;
+  let velocity = JUMP_INITIAL_SPEED;
+  let elapsed = 0;
+  let frames = 0;
+  const horizontalSpeed = 7.0;
+  while (frames < 240 && !(frames > 0 && y <= 0 && velocity < 0)) {
+    const step = advanceVerticalMotion(velocity, frameDelta);
+    velocity = step.velocity;
+    y += step.displacement;
+    elapsed += frameDelta;
+    frames++;
+  }
+  if (frames >= 240) throw new Error('Jump simulation failed to return to ground.');
+  return { elapsed, distance: elapsed * horizontalSpeed, frames };
+}
+const jumpRuns = [
+  { label: '30 FPS', ...simulateJump(1 / 30) },
+  { label: '60 FPS', ...simulateJump(1 / 60) },
+  { label: '120 FPS', ...simulateJump(1 / 120) },
+  { label: '120 ms frame hitch', ...simulateJump(0.12) },
+];
+for (const run of jumpRuns) {
+  console.log(`  ${run.label}: flight ${run.elapsed.toFixed(3)}s, horizontal range ${run.distance.toFixed(2)}m`);
+}
+const jumpDistances = jumpRuns.map((run) => run.distance);
+const jumpTimes = jumpRuns.map((run) => run.elapsed);
+const distanceSpread = Math.max(...jumpDistances) - Math.min(...jumpDistances);
+const timeSpread = Math.max(...jumpTimes) - Math.min(...jumpTimes);
+if (distanceSpread > 1.0 || timeSpread > 0.15) {
+  console.error(`FAIL: Jump trajectory diverges too much across frame rates (range spread ${distanceSpread.toFixed(2)}m, time spread ${timeSpread.toFixed(3)}s).`);
+  process.exit(1);
+}
+if (jumpRuns.find((run) => run.label === '30 FPS')!.distance < 4.0) {
+  console.error('FAIL: The current jump cannot cover even the lower bound of the authored gap budget.');
+  process.exit(1);
+}
+console.log('PASS: Gameplay and test share the same bounded-substep integrator; jump range remains within the current tolerance.');
 
 console.log('\n=== ALL AUDIT TESTS PASSED SUCCESSFULLY ===');
