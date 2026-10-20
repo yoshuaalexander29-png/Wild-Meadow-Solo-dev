@@ -406,7 +406,11 @@ export function createHeroKnight(): HeroKnightRig {
     // -------------------------------------------------------------
     if (speed > 0.25) {
       const isSprint = speed > 4.6;
-      const strideRate = isSprint ? 14.5 : 9.5;
+      // Drive gait phase from actual world speed rather than a fixed animation
+      // clock. Fixed-rate leg swings make the feet skate when accelerating,
+      // decelerating, or creeping at low speed.
+      const strideLength = isSprint ? 2.25 : 1.28; // metres per full gait cycle
+      const strideRate = (Math.max(0, speed) / strideLength) * Math.PI * 2;
       walkPhase += dt * strideRate;
 
       const legSwingMax = isSprint ? 0.78 : 0.52;
@@ -414,14 +418,17 @@ export function createHeroKnight(): HeroKnightRig {
 
       const sinWalk = Math.sin(walkPhase);
       const cosWalk = Math.cos(walkPhase);
+      const leftSwing = Math.sin(walkPhase);
+      const rightSwing = Math.sin(walkPhase + Math.PI);
+      const leftLift = Math.max(0, -leftSwing);
+      const rightLift = Math.max(0, -rightSwing);
 
-      // Hip Swing
-      leftLeg.rotation.x = sinWalk * legSwingMax;
-      rightLeg.rotation.x = -sinWalk * legSwingMax;
-
-      // Knee Bend (Bends on back-swing / foot lift)
-      leftKnee.rotation.x = Math.max(0, -sinWalk) * (isSprint ? 1.05 : 0.75);
-      rightKnee.rotation.x = Math.max(0, sinWalk) * (isSprint ? 1.05 : 0.75);
+      // Hip swing and knee flex share one speed-locked phase. Knee lift is
+      // strongest while the foot is in swing, reducing visible ground skating.
+      leftLeg.rotation.x = leftSwing * legSwingMax;
+      rightLeg.rotation.x = rightSwing * legSwingMax;
+      leftKnee.rotation.x = leftLift * (isSprint ? 1.05 : 0.75);
+      rightKnee.rotation.x = rightLift * (isSprint ? 1.05 : 0.75);
 
       // Arm Counter-Swing
       leftArm.rotation.x = -sinWalk * armSwingMax;
