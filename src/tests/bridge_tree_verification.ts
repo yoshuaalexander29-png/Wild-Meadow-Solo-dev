@@ -14,7 +14,7 @@ import {
   BRIDGE_HALF_LENGTH,
 } from '../scene/terrain';
 import { COURSE_ROUTES, getCourseSurface, getCourseAnticipation, getCourseBoardwalkOffset, COURSE_SURFACE_LIFT } from '../scene/courseLayout';
-import { advanceVerticalMotion, GAME_FEEL, updateJumpAssistTimers } from '../scene/gameFeel';
+import { advanceVerticalMotion, GAME_FEEL, getResponseAlpha, updateJumpAssistTimers } from '../scene/gameFeel';
 import { createMeadowCourse } from '../scene/courseSystem';
 import {
   calculateBridgeCorners,
@@ -431,17 +431,24 @@ if (!buffered.consumeBufferedJump || rollingBuffer.consumeBufferedJump) {
   console.error('FAIL: Buffered jump consumption ignores grounded/rolling state.');
   process.exit(1);
 }
-const alphaAt30 = 1 - Math.exp(-GAME_FEEL.airControl / 30);
-const alphaAt60 = 1 - Math.exp(-GAME_FEEL.airControl / 60);
-const alphaAt120 = 1 - Math.exp(-GAME_FEEL.airControl / 120);
-const combined30 = 1 - (1 - alphaAt30) ** 2;
-const combined60 = 1 - (1 - alphaAt60) ** 2;
-if (Math.abs(combined30 - alphaAt60) > 1e-9 || Math.abs(combined60 - alphaAt120) > 1e-9) {
-  console.error('FAIL: Exponential movement response is not frame-rate consistent.');
+function simulateVelocityResponse(frameDelta: number, duration = 1) {
+  let velocity = 0;
+  const frames = Math.round(duration / frameDelta);
+  for (let i = 0; i < frames; i++) {
+    velocity += (7.0 - velocity) * getResponseAlpha(GAME_FEEL.airControl, frameDelta);
+  }
+  return velocity;
+}
+const response30 = simulateVelocityResponse(1 / 30);
+const response60 = simulateVelocityResponse(1 / 60);
+const response120 = simulateVelocityResponse(1 / 120);
+if (Math.abs(response30 - response60) > 1e-9 || Math.abs(response60 - response120) > 1e-9) {
+  console.error(`FAIL: Controller movement response differs by frame rate: ${response30}, ${response60}, ${response120}`);
   process.exit(1);
 }
 console.log(`  Coyote: ${GAME_FEEL.coyoteTimeSeconds.toFixed(2)}s; buffer: ${GAME_FEEL.jumpBufferSeconds.toFixed(2)}s; air response: ${GAME_FEEL.airControl.toFixed(1)} s⁻¹`);
-console.log('PASS: Coyote/buffer clocks and exponential movement response meet their timing contracts.');
+console.log(`  One-second air-steering speed at 30/60/120 FPS: ${response30.toFixed(4)} / ${response60.toFixed(4)} / ${response120.toFixed(4)} m/s`);
+console.log('PASS: Coyote/buffer clocks and the controller movement-response helper meet their timing contracts.');
 
 console.log('\nTest 14: Shared jump trajectory across frame rates and frame hitches');
 function simulateJump(frameDelta: number) {
