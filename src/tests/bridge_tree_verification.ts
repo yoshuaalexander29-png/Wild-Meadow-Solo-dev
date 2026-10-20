@@ -183,11 +183,11 @@ console.log('PASS: The lane has a queryable surface with a bounded width.');
 
 console.log('\nTest 7: Authored course topology, obstacle clearance, and shortcut value');
 if (COURSE_ROUTES.length !== 2) {
-  console.error(`FAIL: Expected one main route and one shortcut; found ${MEADOW_COURSE_ROUTES.length} routes.`);
+  console.error(`FAIL: Expected one main route and one shortcut; found ${COURSE_ROUTES.length} routes.`);
   process.exit(1);
 }
-const mainRoute = MEADOW_COURSE_ROUTES.find((route) => route.name === 'Meadow Mainline');
-const shortcutRoute = MEADOW_COURSE_ROUTES.find((route) => route.name === 'Canopy Cut');
+const mainRoute = COURSE_ROUTES.find((route) => route.name === 'Meadow Mainline');
+const shortcutRoute = COURSE_ROUTES.find((route) => route.name === 'Canopy Cut');
 if (!mainRoute || !shortcutRoute) {
   console.error('FAIL: Required mainline or shortcut route is missing.');
   process.exit(1);
@@ -210,7 +210,7 @@ if (shortcutLength >= detourLength * 0.92) {
   console.error('FAIL: Shortcut is not meaningfully shorter than the main route.');
   process.exit(1);
 }
-for (const route of MEADOW_COURSE_ROUTES) {
+for (const route of COURSE_ROUTES) {
   const curve = new THREE.CatmullRomCurve3(
     route.points.map(([x, z]) => new THREE.Vector3(x, getTerrainHeight(x, z), z)),
     false,
