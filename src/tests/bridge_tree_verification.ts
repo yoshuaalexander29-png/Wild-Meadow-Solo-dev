@@ -446,7 +446,7 @@ console.log('PASS: Coyote/buffer clocks and exponential movement response meet t
 console.log('\nTest 14: Shared jump trajectory across frame rates and frame hitches');
 function simulateJump(frameDelta: number) {
   let y = 0;
-  let velocity = JUMP_INITIAL_SPEED;
+  let velocity = GAME_FEEL.jumpInitialSpeed;
   let elapsed = 0;
   let frames = 0;
   const horizontalSpeed = 7.0;
