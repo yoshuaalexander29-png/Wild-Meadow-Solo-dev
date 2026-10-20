@@ -17,6 +17,7 @@ import {
 import { COURSE_ROUTES, getCourseSurface, getCourseAnticipation, getCourseBoardwalkOffset, COURSE_SURFACE_LIFT } from '../scene/courseLayout';
 import { advanceHorizontalVelocity, advanceVerticalMotion, clampControllerDelta, GAME_FEEL, getResponseAlpha, updateJumpAssistTimers } from '../scene/gameFeel';
 import { createMeadowCourse } from '../scene/courseSystem';
+import { createCharacterController } from '../scene/characterController';
 import {
   calculateBridgeCorners,
   SPIRITED_AWAY_BRIDGE_LAYOUT,
@@ -659,3 +660,64 @@ if (reachTime >= 2.0 || !(walkReach < reachDistance) || runReach < conservativeR
   process.exit(1);
 }
 console.log('PASS: Authored gap fits the nominal run/sprint reach envelope; walking speed is intentionally insufficient. This is a vertical-integrator/constant-horizontal-speed estimate, not an end-to-end controller jump.');
+
+console.log('\\nTest 15: Live production controller update at 30/60/120 FPS');
+const controllerRuns: Array<{ fps: number; travel: number; stopSpeed: number }> = [];
+for (const fps of [30, 60, 120]) {
+  const root = new THREE.Group();
+  const startX = 40;
+  const startZ = 40;
+  root.position.set(startX, getWalkableSurface(startX, startZ).height, startZ);
+  const controller = createCharacterController(root, []);
+  const frames = fps;
+  for (let frame = 0; frame < frames; frame++) {
+    controller.update(1 / fps, { x: 0, y: 1, sprint: true, jump: false }, 0, frame / fps);
+  }
+  const travel = Math.hypot(root.position.x - startX, root.position.z - startZ);
+  for (let frame = 0; frame < frames; frame++) {
+    controller.update(1 / fps, { x: 0, y: 0, sprint: false, jump: false }, 0, 1 + frame / fps);
+  }
+  const stopSpeed = Math.hypot(controller.velocity.x, controller.velocity.z);
+  controllerRuns.push({ fps, travel, stopSpeed });
+  controller.dispose();
+}
+for (const run of controllerRuns) {
+  console.log(`  ${run.fps} FPS: one-second sprint travel=${run.travel.toFixed(2)}m; speed after one-second braking=${run.stopSpeed.toFixed(3)}m/s`);
+}
+const controllerTravelSpread = Math.max(...controllerRuns.map(r => r.travel)) - Math.min(...controllerRuns.map(r => r.travel));
+if (controllerTravelSpread > 0.25 || controllerRuns.some(r => r.travel < 4.5 || r.stopSpeed > 0.15)) {
+  console.error('FAIL: Production controller movement diverges excessively by frame rate or braking does not settle.');
+  process.exit(1);
+}
+console.log('PASS: The actual character-controller update path accelerates and brakes consistently at 30/60/120 FPS in an obstacle-free terrain fixture.');
+
+console.log('\\nTest 16: Production controller buffered jump survives until landing');
+{
+  const root = new THREE.Group();
+  root.position.set(40, getWalkableSurface(40, 40).height, 40);
+  const controller = createCharacterController(root, []);
+  let bufferedPressSent = false;
+  let sawSecondTakeoff = false;
+  let previousVerticalSpeed = 0;
+  const fps = 120;
+  for (let frame = 0; frame < 150; frame++) {
+    const time = frame / fps;
+    const pressBufferedJump = !bufferedPressSent && time >= 0.60;
+    const input = { x: 0, y: 0, sprint: false, jump: frame === 0 || pressBufferedJump };
+    if (pressBufferedJump) bufferedPressSent = true;
+    controller.update(1 / fps, input, 0, time);
+    if (bufferedPressSent && frame > 75 && controller.verticalSpeed > 4.0 && previousVerticalSpeed <= 0.1) {
+      sawSecondTakeoff = true;
+      break;
+    }
+    previousVerticalSpeed = controller.verticalSpeed;
+  }
+  controller.dispose();
+  if (!sawSecondTakeoff) {
+    console.error('FAIL: Buffered jump did not trigger a second takeoff after the first landing.');
+    process.exit(1);
+  }
+}
+console.log('PASS: A jump press buffered during descent is consumed by the live controller after ground contact.');
+
+\n\nconsole.log('=== ALL AUDIT TESTS PASSED SUCCESSFULLY ===');\n
