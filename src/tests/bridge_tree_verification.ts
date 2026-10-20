@@ -237,6 +237,15 @@ console.log('PASS: Both routes have sampled obstacle/brook clearance, a nearby e
 
 
 console.log('\nTest 8: Course ramp profile and support normal');
+const mainlineForMerge = COURSE_ROUTES.find((route) => route.name === 'Meadow Mainline');
+const shortcutForMerge = COURSE_ROUTES.find((route) => route.name === 'Canopy Cut');
+if (!mainlineForMerge || !shortcutForMerge ||
+    Math.abs(mainlineForMerge.lifts[3] - shortcutForMerge.lifts[0]) > 0.01 ||
+    Math.abs(mainlineForMerge.lifts[7] - shortcutForMerge.lifts[4]) > 0.01) {
+  console.error('FAIL: Shortcut and mainline elevations do not match at both shared junctions.');
+  process.exit(1);
+}
+
 for (const route of COURSE_ROUTES) {
   if (route.lifts.length !== route.points.length || route.lifts.some((lift) => !Number.isFinite(lift) || lift < 0)) {
     console.error(`FAIL: ${route.name} has invalid lift metadata.`);
