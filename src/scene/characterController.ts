@@ -20,6 +20,8 @@ export interface CharacterController {
   position: THREE.Vector3;
   velocity: THREE.Vector3;
   speed: number;
+  /** Current vertical physics velocity in world units per second. */
+  verticalSpeed: number;
   isGrounded: boolean;
   isDead: boolean;
   surfaceType: SurfaceType;
@@ -125,6 +127,7 @@ export function createCharacterController(
   // Coyote time & Jump buffering
   let coyoteTimer = 0;
   let jumpBufferTimer = 0;
+  let previousJumpInput = false;
 
   let currentSurfaceType: SurfaceType = 'grass';
   let footstepTimer = 0;
@@ -323,6 +326,9 @@ export function createCharacterController(
     get speed() {
       return currentSpeed;
     },
+    get verticalSpeed() {
+      return verticalVelocity;
+    },
     get isGrounded() {
       return isGrounded;
     },
@@ -338,6 +344,10 @@ export function createCharacterController(
     respawn: executeRespawn,
     update: (delta: number, input: MovementInput, cameraYaw: number, time: number) => {
       const dt = THREE.MathUtils.clamp(delta, 0.001, 0.05);
+      // Treat held jump as one press. Repeatedly calling doJump while held can
+      // continually refresh the jump buffer and cause an unintended auto-bunny-hop.
+      const jumpPressed = input.jump && !previousJumpInput;
+      previousJumpInput = input.jump;
 
       mixer.update(dt);
 
@@ -384,7 +394,7 @@ export function createCharacterController(
         }
       }
 
-      if (input.jump && !isRolling) {
+      if (jumpPressed && !isRolling) {
         doJump();
       }
 

@@ -18,7 +18,8 @@ export interface ThirdPersonCamera {
     characterSpeed?: number,
     characterHeading?: number,
     characterVelocity?: THREE.Vector3,
-    characterGrounded?: boolean
+    characterGrounded?: boolean,
+    characterVerticalSpeed?: number
   ) => void;
 }
 
@@ -121,7 +122,8 @@ export function createThirdPersonCamera(
       characterSpeed = 0,
       characterHeading?: number,
       characterVelocity?: THREE.Vector3,
-      characterGrounded = true
+      characterGrounded = true,
+      characterVerticalSpeed = 0
     ) => {
       const dt = THREE.MathUtils.clamp(delta, 0.001, 0.05);
       manualOrbitCooldown = Math.max(0, manualOrbitCooldown - dt);
@@ -160,8 +162,8 @@ export function createThirdPersonCamera(
       const lookAheadDistance = THREE.MathUtils.clamp(travelSpeed * 0.2, 0, 1.8);
       _desiredTarget.set(
         characterPos.x + _travelDirection.x * lookAheadDistance,
-        characterPos.y + 1.25 + (!characterGrounded && characterVelocity
-          ? THREE.MathUtils.clamp(characterVelocity.y * 0.035, -0.18, 0.28)
+        characterPos.y + 1.25 + (!characterGrounded
+          ? THREE.MathUtils.clamp(characterVerticalSpeed * 0.035, -0.18, 0.28)
           : 0),
         characterPos.z + _travelDirection.z * lookAheadDistance
       );

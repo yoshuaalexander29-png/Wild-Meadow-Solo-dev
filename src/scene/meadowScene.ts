@@ -247,7 +247,8 @@ export function initMeadowScene(
         characterController.speed,
         characterController.model.rotation.y,
         characterController.velocity,
-        characterController.isGrounded
+        characterController.isGrounded,
+        characterController.verticalSpeed
       );
     } else {
       sun.position.set(initialKnightPos.x - 13, initialKnightPos.y + 20, initialKnightPos.z + 11);
@@ -374,9 +375,9 @@ export function initMeadowScene(
       e.preventDefault();
     }
     keyState[e.code] = true;
-    if (e.code === 'Space') {
-      characterController?.triggerJump();
-    } else if (e.code === 'KeyC') {
+    // Jump is dispatched from the input edge in the controller update loop;
+    // calling triggerJump here as well would double-submit the same press.
+    if (e.code === 'KeyC') {
       characterController?.triggerRoll();
     } else if (e.code === 'KeyV') {
       characterController?.triggerEmote();
