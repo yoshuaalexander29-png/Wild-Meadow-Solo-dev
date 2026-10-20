@@ -1,0 +1,36 @@
+name: Verify Wild Meadow
+
+on:
+  push:
+    branches:
+      - improve/adaptive-platformer-camera
+  pull_request:
+    branches:
+      - improve/adaptive-platformer-camera
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wild-meadow-verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Type-check
+        run: npm run lint
+      - name: Production build
+        run: npm run build
