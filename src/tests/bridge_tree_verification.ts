@@ -532,7 +532,20 @@ console.log(`  Coyote: ${GAME_FEEL.coyoteTimeSeconds.toFixed(2)}s; buffer: ${GAM
 console.log(`  One-second air-steering speed at 30/60/120 FPS: ${response30.toFixed(4)} / ${response60.toFixed(4)} / ${response120.toFixed(4)} m/s`);
 console.log('PASS: Coyote/buffer clocks and the controller movement-response helper meet their timing contracts.');
 
-console.log('\nTest 17: Shared jump trajectory across frame rates and frame hitches');
+console.log('\nTest 17: Apex assistance does not slow the descent');
+const risingNearApex = advanceVerticalMotion(0.5, 1 / 120);
+const fallingNearGround = advanceVerticalMotion(-0.5, 1 / 120);
+const expectedRisingVelocity = 0.5 - GAME_FEEL.jumpGravity * GAME_FEEL.jumpApexGravityScale / 120;
+const expectedFallingVelocity = -0.5 - GAME_FEEL.jumpGravity / 120;
+if (Math.abs(risingNearApex.velocity - expectedRisingVelocity) > 1e-8
+  || Math.abs(fallingNearGround.velocity - expectedFallingVelocity) > 1e-8) {
+  console.error('FAIL: Apex gravity assistance must apply only while rising near the apex.');
+  process.exit(1);
+}
+console.log(`  Rising near apex: ${risingNearApex.velocity.toFixed(4)}m/s; descending: ${fallingNearGround.velocity.toFixed(4)}m/s`);
+console.log('PASS: Apex assistance widens the rising apex window without softening descent.');
+
+console.log('\nTest 18: Shared jump trajectory across frame rates and frame hitches');
 function simulateJump(frameDelta: number) {
   let y = 0;
   let velocity: number = GAME_FEEL.jumpInitialSpeed;
@@ -572,7 +585,7 @@ if (jumpRuns.find((run) => run.label === '30 FPS')!.distance < 4.0) {
 }
 console.log('PASS: Gameplay and test share the same bounded-substep integrator; jump range remains within the current tolerance.');
 
-console.log('\nTest 18: Course scene cleanup is complete and idempotent');
+console.log('\nTest 19: Course scene cleanup is complete and idempotent');
 const lifecycleScene = new THREE.Scene();
 const lifecycleCourse = createMeadowCourse(lifecycleScene);
 const ownedObjectCount = lifecycleScene.children.length;
