@@ -76,6 +76,25 @@ export function createMeadowCourse(scene: THREE.Scene): MeadowCourse {
   const owned: THREE.Object3D[] = [];
   const routes: Array<{ curve: THREE.CatmullRomCurve3; definition: CourseRouteDefinition }> = [];
 
+  const ringCapacity = COURSE_ROUTES.reduce((count, route) => count + route.rings.length, 0) + 1;
+  const ringGeometry = new THREE.TorusGeometry(0.42, 0.075, 8, 24);
+  const ringMaterial = new THREE.MeshStandardMaterial({
+    color: '#e5b45a',
+    emissive: '#6c4d17',
+    emissiveIntensity: 0.18,
+    roughness: 0.38,
+    metalness: 0.12,
+  });
+  const ringInstances = new THREE.InstancedMesh(ringGeometry, ringMaterial, ringCapacity);
+  ringInstances.name = 'MeadowCourse_JumpCuesAndFinish';
+  ringInstances.castShadow = true;
+  const ringPosition = new THREE.Vector3();
+  const ringTangent = new THREE.Vector3();
+  const ringScale = new THREE.Vector3(1, 1, 1);
+  const ringRotation = new THREE.Quaternion();
+  const ringMatrix = new THREE.Matrix4();
+  let ringIndex = 0;
+
   for (const definition of COURSE_ROUTES) {
     const points = definition.points.map(([x, z], index) =>
       new THREE.Vector3(x, definition.lifts[index] ?? 0, z)
@@ -103,25 +122,29 @@ export function createMeadowCourse(scene: THREE.Scene): MeadowCourse {
 
     for (const t of definition.rings) {
       const point = curve.getPointAt(t);
-      const tangent = curve.getTangentAt(t).setY(0).normalize();
-      const ring = new THREE.Mesh(
-        new THREE.TorusGeometry(0.42, 0.075, 8, 24),
-        new THREE.MeshStandardMaterial({
-          color: definition.accent,
-          emissive: '#6c4d17',
-          emissiveIntensity: 0.18,
-          roughness: 0.38,
-          metalness: 0.12,
-        }),
-      );
-      ring.name = 'CourseJumpCue';
-      ring.position.set(point.x, getTerrainHeight(point.x, point.z) + point.y + 1.65, point.z);
-      ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangent);
-      ring.castShadow = true;
-      scene.add(ring);
-      owned.push(ring);
+      curve.getTangentAt(t, ringTangent).setY(0).normalize();
+      ringPosition.set(point.x, getTerrainHeight(point.x, point.z) + point.y + 1.65, point.z);
+      ringRotation.setFromUnitVectors(new THREE.Vector3(0, 0, 1), ringTangent);
+      ringMatrix.compose(ringPosition, ringRotation, ringScale);
+      ringInstances.setMatrixAt(ringIndex++, ringMatrix);
     }
   }
+
+  // A larger matching ring gives the authored mainline an unmistakable endpoint.
+  const finishRoute = routes.find((route) => route.definition.name === 'Meadow Mainline');
+  if (finishRoute) {
+    const finish = finishRoute.curve.getPointAt(1);
+    finishRoute.curve.getTangentAt(1, ringTangent).setY(0).normalize();
+    ringPosition.set(finish.x, getTerrainHeight(finish.x, finish.z) + finish.y + 1.2, finish.z);
+    ringRotation.setFromUnitVectors(new THREE.Vector3(0, 0, 1), ringTangent);
+    ringScale.setScalar(2.8);
+    ringMatrix.compose(ringPosition, ringRotation, ringScale);
+    ringInstances.setMatrixAt(ringIndex++, ringMatrix);
+  }
+  ringInstances.count = ringIndex;
+  ringInstances.instanceMatrix.needsUpdate = true;
+  scene.add(ringInstances);
+  owned.push(ringInstances);
 
   // Instanced timber supports make elevated sections read as real structures
   // while keeping their draw-call cost constant as the course sampling is refined.
