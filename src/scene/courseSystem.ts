@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { getTerrainHeight } from './terrain';
-import { COURSE_COURSE_ROUTES, COURSE_SAMPLE_COUNT, COURSE_SURFACE_LIFT, type CourseCourseRouteDefinition } from './courseLayout';
+import { COURSE_ROUTES, COURSE_SAMPLE_COUNT, COURSE_SURFACE_LIFT, type CourseRouteDefinition } from './courseLayout';
 
 /**
  * Authored, terrain-following route dressing for the meadow.
