@@ -284,7 +284,19 @@ export function getBridgeDeckHeight(worldX: number, worldZ: number): {
  * Handles the Spirited Away bridge deck, stepping stones, and brook depth.
  * Guarantees zero water death on dry ground, bridge approaches, or bridge deck.
  */
-export function getWalkableSurface(x: number, z: number): WalkableSurface {
+export interface SurfaceQueryContext {
+  /** Character root Y before the current physics integration step. */
+  characterY: number;
+  /** Grounded state before surface resolution. */
+  isGrounded: boolean;
+  /** World-space vertical velocity; negative means descending. */
+}
+
+export function getWalkableSurface(
+  x: number,
+  z: number,
+  context?: SurfaceQueryContext & { verticalVelocity: number }
+): WalkableSurface {
   const terrainH = getTerrainHeight(x, z);
   const normal = getTerrainNormal(x, z);
   const slopeAngle = Math.acos(THREE.MathUtils.clamp(normal.y, -1, 1));
@@ -292,15 +304,25 @@ export function getWalkableSurface(x: number, z: number): WalkableSurface {
   // 1. Check Spirited Away Straight Vermilion Footbridge (Unified with bridgeSystem.ts)
   const bridgeEval = getBridgeDeckHeight(x, z);
   if (bridgeEval.onBridge) {
-    return {
-      height: bridgeEval.deckHeight,
-      normal: bridgeEval.normal,
-      surfaceType: 'wood',
-      waterDepth: 0,
-      isBridge: true,
-      isDeepWater: false,
-      slopeAngle: bridgeEval.crown > 0.02 ? 0.02 : 0,
-    };
+    // A bridge is a one-sided support surface: do not pull a character upward
+    // through the deck when jumping/falling underneath it. A descending character
+    // can land on it only while still at (or above) deck height.
+    const mayUseDeck = !context ||
+      (context.isGrounded && context.characterY >= bridgeEval.deckHeight - 0.48) ||
+      (!context.isGrounded &&
+        context.verticalVelocity <= 0 &&
+        context.characterY >= bridgeEval.deckHeight - 0.08);
+    if (mayUseDeck) {
+      return {
+        height: bridgeEval.deckHeight,
+        normal: bridgeEval.normal,
+        surfaceType: 'wood',
+        waterDepth: 0,
+        isBridge: true,
+        isDeepWater: false,
+        slopeAngle: bridgeEval.crown > 0.02 ? 0.02 : 0,
+      };
+    }
   }
 
   // 2. Check Natural Stepping Stones
