@@ -665,8 +665,8 @@ console.log('\\nTest 18: Live production controller update at 30/60/120 FPS');
 const controllerRuns: Array<{ fps: number; travel: number; stopSpeed: number }> = [];
 for (const fps of [30, 60, 120]) {
   const root = new THREE.Group();
-  const startX = 40;
-  const startZ = 40;
+  const startX = 28;
+  const startZ = 28;
   root.position.set(startX, getWalkableSurface(startX, startZ).height, startZ);
   const controller = createCharacterController(root, []);
   const frames = fps;
@@ -685,7 +685,7 @@ for (const run of controllerRuns) {
   console.log(`  ${run.fps} FPS: one-second sprint travel=${run.travel.toFixed(2)}m; speed after one-second braking=${run.stopSpeed.toFixed(3)}m/s`);
 }
 const controllerTravelSpread = Math.max(...controllerRuns.map(r => r.travel)) - Math.min(...controllerRuns.map(r => r.travel));
-if (controllerTravelSpread > 0.25 || controllerRuns.some(r => r.travel < 4.5 || r.stopSpeed > 0.15)) {
+if (controllerTravelSpread > 0.25 || controllerRuns.some(r => r.travel < 5.0 || r.travel > 7.5 || r.stopSpeed > 0.15)) {
   console.error('FAIL: Production controller movement diverges excessively by frame rate or braking does not settle.');
   process.exit(1);
 }
@@ -694,7 +694,7 @@ console.log('PASS: The actual character-controller update path accelerates and b
 console.log('\\nTest 19: Production controller buffered jump survives until landing');
 {
   const root = new THREE.Group();
-  root.position.set(40, getWalkableSurface(40, 40).height, 40);
+  root.position.set(28, getWalkableSurface(28, 28).height, 28);
   const controller = createCharacterController(root, []);
   let bufferedPressSent = false;
   let sawSecondTakeoff = false;
