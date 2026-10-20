@@ -16,6 +16,25 @@ export interface CourseRouteDefinition {
 }
 
 export const COURSE_SURFACE_LIFT = 0.065;
+export const COURSE_BOARDWALK_MAX_HEIGHT = 0.07;
+const COURSE_BOARDWALK_START_LIFT = 0.18;
+const COURSE_BOARDWALK_FULL_LIFT = 0.42;
+
+/** Shared gradual deck thickness for both rendered planks and collision support. */
+export function getCourseBoardwalkOffset(lift: number): number {
+  const blend = THREE.MathUtils.clamp(
+    (lift - COURSE_BOARDWALK_START_LIFT) / (COURSE_BOARDWALK_FULL_LIFT - COURSE_BOARDWALK_START_LIFT),
+    0,
+    1,
+  );
+  return blend * COURSE_BOARDWALK_MAX_HEIGHT;
+}
+
+function getCourseBoardwalkGradient(lift: number): number {
+  return lift > COURSE_BOARDWALK_START_LIFT && lift < COURSE_BOARDWALK_FULL_LIFT
+    ? COURSE_BOARDWALK_MAX_HEIGHT / (COURSE_BOARDWALK_FULL_LIFT - COURSE_BOARDWALK_START_LIFT)
+    : 0;
+}
 export const COURSE_SAMPLE_COUNT = 180;
 
 export const COURSE_ROUTES: CourseRouteDefinition[] = [
@@ -189,13 +208,16 @@ export function getCourseSurface(
   const hU = terrainHeightAt(x, z + eps);
   // Include the authored vertical profile in the support normal. This keeps the
   // character's pitch aligned to ramps instead of treating raised lanes as flat.
+  const boardwalkGradient = getCourseBoardwalkGradient(bestLift);
+  const effectiveLiftGradientX = bestLiftGradientX * (1 + boardwalkGradient);
+  const effectiveLiftGradientZ = bestLiftGradientZ * (1 + boardwalkGradient);
   const normal = new THREE.Vector3(
-    hL - hR - 2 * eps * bestLiftGradientX,
+    hL - hR - 2 * eps * effectiveLiftGradientX,
     2 * eps,
-    hD - hU - 2 * eps * bestLiftGradientZ,
+    hD - hU - 2 * eps * effectiveLiftGradientZ,
   ).normalize();
   return {
-    height: terrainH + bestLift + COURSE_SURFACE_LIFT,
+    height: terrainH + bestLift + COURSE_SURFACE_LIFT + getCourseBoardwalkOffset(bestLift),
     normal,
     surfaceType: 'course',
     waterDepth: 0,
