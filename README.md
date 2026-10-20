@@ -45,6 +45,14 @@ An explorable, third-person anime-fantasy meadow environment inspired by **Gensh
 
 ---
 
+### 6. Authored Speedway Course
+
+- **Mainline + Canopy Cut:** The route fork and merge share waypoint data; the cut is measured against the longer mainline detour rather than being a second unrelated decoration.
+- **Elevated traversal:** The running ribbon follows an authored lift profile with instanced timber supports. A short mainline gap is cut from both the rendered ribbon and the collision query; the Canopy Cut bypasses it.
+- **Shared geometry contract:** `src/scene/courseLayout.ts` is the source for route points, widths, elevations, gap intervals, and cue positions. The renderer and support-surface resolver sample the same arc-length curves.
+- **Visual hierarchy:** Muted meadow-stone lanes, darker moss shoulders, and a restrained amber guide/cue palette distinguish the playable route without replacing the pastoral environment with neon UI.
+- **Physical safeguards:** Elevated support resolution is height-aware, so a character underneath a deck does not get pulled upward through it. Route widths, obstacle/stream clearance, lift grades, gap range, and shortcut length are regression-checked.
+
 ## Technical Architecture & Reused Techniques
 
 - **Grass Deformation:** Inspired by `threejs-field-grass` and `three-stylized` using GPU-accelerated vertex displacement in `InstancedMesh` via `material.onBeforeCompile`.
@@ -58,6 +66,7 @@ npm install
 npm run dev    # Starts Vite dev server on 0.0.0.0:3000
 npm run build  # Compiles TypeScript and builds production bundle
 npm run lint   # Verifies TypeScript types with zero errors
+npx --yes tsx src/tests/bridge_tree_verification.ts  # Terrain, bridge, route, gap and profile checks
 ```
 
 ## Asset Licenses
