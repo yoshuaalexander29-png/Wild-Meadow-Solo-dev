@@ -262,6 +262,18 @@ for (const route of COURSE_ROUTES) {
     }
   }
 }
+const forkPoint = mainRoute.points[3];
+const shortcutStart = shortcutRoute.points[0];
+const mergePoint = mainRoute.points[6];
+const shortcutEnd = shortcutRoute.points[shortcutRoute.points.length - 1];
+const forkHeightError = Math.abs(mainRoute.lifts[3] - shortcutRoute.lifts[0]);
+const mergeHeightError = Math.abs(mainRoute.lifts[6] - shortcutRoute.lifts[shortcutRoute.lifts.length - 1]);
+if (Math.hypot(forkPoint[0] - shortcutStart[0], forkPoint[1] - shortcutStart[1]) > 0.01 ||
+    Math.hypot(mergePoint[0] - shortcutEnd[0], mergePoint[1] - shortcutEnd[1]) > 0.01 ||
+    forkHeightError > 0.05 || mergeHeightError > 0.05) {
+  console.error('FAIL: Route fork/merge positions or deck elevations are discontinuous.');
+  process.exit(1);
+}
 const rampSurface = getCourseSurface(24.5, -9.0, getTerrainHeight);
 if (!rampSurface || rampSurface.surfaceType !== 'course' || rampSurface.height < getTerrainHeight(24.5, -9.0) + 0.8) {
   console.error('FAIL: Raised route section is not represented by the shared course support query.');
