@@ -412,7 +412,28 @@ if (underDeck.surfaceType === 'course' || descendingAboveDeck.surfaceType !== 'c
 }
 console.log('PASS: Course deck support is one-sided and height-aware.');
 
-console.log('\nTest 13: Collision footprint, exact-centre recovery and meadow boundary');
+console.log('\nTest 13: Missed-jump recovery and authored route junction support');
+const missedGapSupport = getWalkableSurface(gapCenter.x, gapCenter.z, {
+  characterY: gapCenter.y + 0.35,
+  isGrounded: false,
+  verticalVelocity: -3.0,
+});
+if (missedGapSupport.surfaceType === 'course') {
+  console.error('FAIL: Missed jump gap resolves to the missing mainline deck instead of lower-world recovery.');
+  process.exit(1);
+}
+const forkSupport = getCourseSurface(forkPoint[0], forkPoint[1], getTerrainHeight);
+const mergeSupport = getCourseSurface(mergePoint[0], mergePoint[1], getTerrainHeight);
+if (!forkSupport || !mergeSupport
+  || Math.abs(forkSupport.height - (getTerrainHeight(forkPoint[0], forkPoint[1]) + mainRoute.lifts[3] + COURSE_SURFACE_LIFT + getCourseBoardwalkOffset(mainRoute.lifts[3]))) > 0.01
+  || Math.abs(mergeSupport.height - (getTerrainHeight(mergePoint[0], mergePoint[1]) + mainRoute.lifts[7] + COURSE_SURFACE_LIFT + getCourseBoardwalkOffset(mainRoute.lifts[7]))) > 0.01) {
+  console.error('FAIL: Shared fork/merge coordinates do not resolve to their authored deck elevations.');
+  process.exit(1);
+}
+console.log(`  Missed-gap fallback: ${missedGapSupport.surfaceType}; fork support: ${forkSupport.height.toFixed(3)}m; merge support: ${mergeSupport.height.toFixed(3)}m`);
+console.log('PASS: Missed jump falls back to the lower world and fork/merge support heights remain queryable.');
+
+console.log('\nTest 14: Collision footprint, exact-centre recovery and meadow boundary');
 const exactCentreCollision = resolveCollision(-16, -18, 0.42, 0, 0);
 const recoveredDistance = Math.hypot(exactCentreCollision.x + 16, exactCentreCollision.z + 18);
 if (!exactCentreCollision.collided || recoveredDistance < 2.3 + 0.42 - 1e-6) {
@@ -428,7 +449,7 @@ if (!boundaryCollision.collided || boundaryRadius > 48.000001 || boundaryCollisi
 console.log(`  Exact-centre collider recovery: ${recoveredDistance.toFixed(3)}m from obstacle centre; boundary radius: ${boundaryRadius.toFixed(3)}m`);
 console.log('PASS: Collision resolution handles exact-centre overlap and outward boundary movement.');
 
-console.log('\nTest 14: Full-controller horizontal motion kernel and response timing');
+console.log('\nTest 15: Full-controller horizontal motion kernel and response timing');
 function simulateHorizontalMotion(
   startX: number,
   startZ: number,
@@ -472,7 +493,7 @@ console.log(`  0.5s braking from 7m/s at 30/60/120 FPS: ${brakingResults.map(v =
 console.log(`  1s air steering to 7m/s at 30/60/120 FPS: ${airSteerResults.map(v => v.toFixed(4)).join(' / ')} m/s`);
 console.log('PASS: live-controller horizontal response kernel is deterministic across tested render rates.');
 
-console.log('\nTest 15: Centralized game-feel values and jump-assist timing');
+console.log('\nTest 16: Centralized game-feel values and jump-assist timing');
 if (GAME_FEEL.coyoteTimeSeconds !== 0.16 || GAME_FEEL.jumpBufferSeconds !== 0.2) {
   console.error('FAIL: Documented coyote/buffer timing changed unexpectedly.');
   process.exit(1);
@@ -511,7 +532,7 @@ console.log(`  Coyote: ${GAME_FEEL.coyoteTimeSeconds.toFixed(2)}s; buffer: ${GAM
 console.log(`  One-second air-steering speed at 30/60/120 FPS: ${response30.toFixed(4)} / ${response60.toFixed(4)} / ${response120.toFixed(4)} m/s`);
 console.log('PASS: Coyote/buffer clocks and the controller movement-response helper meet their timing contracts.');
 
-console.log('\nTest 16: Shared jump trajectory across frame rates and frame hitches');
+console.log('\nTest 17: Shared jump trajectory across frame rates and frame hitches');
 function simulateJump(frameDelta: number) {
   let y = 0;
   let velocity: number = GAME_FEEL.jumpInitialSpeed;
@@ -551,7 +572,7 @@ if (jumpRuns.find((run) => run.label === '30 FPS')!.distance < 4.0) {
 }
 console.log('PASS: Gameplay and test share the same bounded-substep integrator; jump range remains within the current tolerance.');
 
-console.log('\nTest 17: Course scene cleanup is complete and idempotent');
+console.log('\nTest 18: Course scene cleanup is complete and idempotent');
 const lifecycleScene = new THREE.Scene();
 const lifecycleCourse = createMeadowCourse(lifecycleScene);
 const ownedObjectCount = lifecycleScene.children.length;
