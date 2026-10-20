@@ -10,6 +10,7 @@ import { createCloudSystem, type CloudSystem } from './cloudSystem';
 import { createCharacterController, type CharacterController } from './characterController';
 import { createThirdPersonCamera, type ThirdPersonCamera } from './thirdPersonCamera';
 import { createHeroKnight } from './heroCharacter';
+import { createMeadowCourse } from './courseSystem';
 
 const ASSETS = {
   warrior: 'https://cdn.cinevva.com/assets/packs/quaternius/ultimate-animated-characters/Knight_Male.glb?download=1',
@@ -89,7 +90,7 @@ export function initMeadowScene(
   const environment = createEnvironment(scene);
 
   // Authored, terrain-following course ribbon: readable route edges, shortcut and checkpoints.
-  const course = createCourseVisuals(scene);
+  const course = createMeadowCourse(scene);
 
   // 2. Build Interactive Grass & Wildflowers (GPU wind + character deformation)
   const grassSystem = createGrassSystem(scene);
@@ -515,121 +516,3 @@ export function initMeadowScene(
   };
 }
 
-
-/**
- * A coherent, readable starter course inspired by fast 3D platformers:
- * a continuous running lane, a clearly differentiated shortcut, and warm
- * checkpoint rings. Geometry samples the same terrain-height function as
- * gameplay; no unsupported floating platforms are drawn.
- */
-function createCourseVisuals(scene: THREE.Scene): { dispose: () => void } {
-  const root = new THREE.Group();
-  root.name = 'Wild Meadow • running course';
-  scene.add(root);
-
-  const laneMat = new THREE.MeshStandardMaterial({ color: '#e8d8ad', roughness: 0.88, side: THREE.DoubleSide });
-  const edgeMat = new THREE.MeshStandardMaterial({ color: '#287e78', roughness: 0.64, side: THREE.DoubleSide });
-  const dashMat = new THREE.MeshStandardMaterial({ color: '#e5a94f', roughness: 0.68, metalness: 0.12 });
-  const shortcutMat = new THREE.MeshStandardMaterial({ color: '#8bc9bd', roughness: 0.72, side: THREE.DoubleSide });
-  const ringMat = new THREE.MeshStandardMaterial({
-    color: '#f0bd55', emissive: '#5a3510', emissiveIntensity: 0.22, roughness: 0.34, metalness: 0.58,
-  });
-  const ownedGeometries = new Set<THREE.BufferGeometry>();
-
-  type Point = readonly [number, number];
-  const main: Point[] = [
-    [5.5, -1], [9.5, -2.8], [14.5, -5], [19.5, -7.8], [24.5, -9],
-    [29.5, -6.5], [32, -1], [33, 5.5], [31.5, 11.5], [29, 17.5],
-    [24, 22.5], [18, 25], [12, 25.5], [7, 24.5],
-  ];
-  const shortcut: Point[] = [[19.5, -7.8], [21, -4.8], [24, -2], [28.5, 0.8], [32, 5.5]];
-
-  const makeCurve = (points: Point[]) => new THREE.CatmullRomCurve3(
-    points.map(([x, z]) => new THREE.Vector3(x, 0, z)), false, 'centripetal', 0.35,
-  );
-
-  const addRibbon = (curve: THREE.CatmullRomCurve3, halfWidth: number, material: THREE.Material, offset = 0) => {
-    const divisions = Math.max(24, Math.ceil(curve.getLength() / 0.42));
-    const positions: number[] = [];
-    const indices: number[] = [];
-    for (let i = 0; i <= divisions; i++) {
-      const p = curve.getPoint(i / divisions);
-      const tangent = curve.getTangent(i / divisions);
-      const side = new THREE.Vector3(-tangent.z, 0, tangent.x).normalize();
-      p.y = getTerrainHeight(p.x, p.z) + 0.075;
-      for (const sign of [-1, 1]) {
-        const x = p.x + side.x * (offset + sign * halfWidth);
-        const z = p.z + side.z * (offset + sign * halfWidth);
-        positions.push(x, getTerrainHeight(x, z) + 0.075, z);
-      }
-      if (i < divisions) {
-        const a = i * 2;
-        indices.push(a, a + 2, a + 1, a + 1, a + 2, a + 3);
-      }
-    }
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    geometry.setIndex(indices);
-    geometry.computeVertexNormals();
-    ownedGeometries.add(geometry);
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.receiveShadow = true;
-    mesh.name = 'Course • terrain-conforming ribbon';
-    root.add(mesh);
-  };
-
-  const addDashes = (curve: THREE.CatmullRomCurve3) => {
-    const length = curve.getLength();
-    const geometry = new THREE.BoxGeometry(0.075, 0.025, 0.62);
-    ownedGeometries.add(geometry);
-    for (let distance = 1.8; distance < length - 1.2; distance += 2.8) {
-      const t = distance / length;
-      const p = curve.getPoint(t);
-      const tangent = curve.getTangent(t);
-      p.y = getTerrainHeight(p.x, p.z) + 0.105;
-      const dash = new THREE.Mesh(geometry, dashMat);
-      dash.position.copy(p);
-      dash.rotation.y = Math.atan2(tangent.x, tangent.z);
-      dash.name = 'Course • center marker';
-      root.add(dash);
-    }
-  };
-
-  const mainCurve = makeCurve(main);
-  const shortcutCurve = makeCurve(shortcut);
-  addRibbon(mainCurve, 1.45, laneMat);
-  addRibbon(mainCurve, 0.105, edgeMat, -1.345);
-  addRibbon(mainCurve, 0.105, edgeMat, 1.345);
-  addDashes(mainCurve);
-  addRibbon(shortcutCurve, 1.15, shortcutMat);
-  addRibbon(shortcutCurve, 0.09, edgeMat, -1.06);
-  addRibbon(shortcutCurve, 0.09, edgeMat, 1.06);
-  addDashes(shortcutCurve);
-
-  const addRing = (curve: THREE.CatmullRomCurve3, t: number, name: string) => {
-    const p = curve.getPoint(t);
-    const tangent = curve.getTangent(t);
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.58, 0.095, 10, 28), ringMat);
-    ownedGeometries.add(ring.geometry);
-    ring.name = name;
-    ring.position.set(p.x, getTerrainHeight(p.x, p.z) + 1.45, p.z);
-    ring.rotation.y = Math.atan2(tangent.x, tangent.z);
-    ring.castShadow = true;
-    root.add(ring);
-  };
-  addRing(mainCurve, 0.12, 'Course • entry ring');
-  addRing(shortcutCurve, 0.52, 'Course • shortcut ring');
-  addRing(mainCurve, 0.94, 'Course • vista ring');
-
-  return {
-    dispose: () => {
-      scene.remove(root);
-      ownedGeometries.forEach((geometry) => geometry.dispose());
-      laneMat.dispose();
-      edgeMat.dispose();
-      dashMat.dispose();
-      shortcutMat.dispose();
-      ringMat.dispose();
-    },
-  };
-}
