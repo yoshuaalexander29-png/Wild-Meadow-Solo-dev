@@ -1055,8 +1055,8 @@ export function createPlatformerCourse(scene: THREE.Scene, seed = 42): Platforme
   // -------------------------------------------------------------
   // Checkpoint Gates, Lanterns, and Banners
   // -------------------------------------------------------------
-  const gateTimberGeo = new THREE.BoxGeometry(0.24, 3.4, 0.24);
-  const gateBeamGeo = new THREE.BoxGeometry(4.4, 0.28, 0.28);
+  const gateTimberGeo = new THREE.BoxGeometry(0.18, 2.45, 0.18);
+  const gateBeamGeo = new THREE.BoxGeometry(3.55, 0.2, 0.2);
   const lanternGeo = new THREE.DodecahedronGeometry(0.22, 1);
   ownedGeometries.add(gateTimberGeo);
   ownedGeometries.add(gateBeamGeo);
@@ -1072,35 +1072,35 @@ export function createPlatformerCourse(scene: THREE.Scene, seed = 42): Platforme
 
     // Torii / Arch Posts
     const leftPost = new THREE.Mesh(gateTimberGeo, vermilionRailMat);
-    leftPost.position.set(-2.0, 1.7, 0);
+    leftPost.position.set(-1.62, 1.22, 0);
     leftPost.castShadow = true;
     cpGroup.add(leftPost);
 
     const rightPost = new THREE.Mesh(gateTimberGeo, vermilionRailMat);
-    rightPost.position.set(2.0, 1.7, 0);
+    rightPost.position.set(1.62, 1.22, 0);
     rightPost.castShadow = true;
     cpGroup.add(rightPost);
 
     // Crossbar Beam
     const crossBeam = new THREE.Mesh(gateBeamGeo, vermilionRailMat);
-    crossBeam.position.set(0, 3.2, 0);
+    crossBeam.position.set(0, 2.32, 0);
     crossBeam.castShadow = true;
     cpGroup.add(crossBeam);
 
     // Gold Finials atop posts
     const finialL = new THREE.Mesh(new THREE.SphereGeometry(0.16, 6, 6), goldAccentMat);
-    finialL.position.set(-2.0, 3.5, 0);
+    finialL.position.set(-1.62, 2.58, 0);
     ownedGeometries.add(finialL.geometry);
     cpGroup.add(finialL);
 
     const finialR = new THREE.Mesh(new THREE.SphereGeometry(0.16, 6, 6), goldAccentMat);
-    finialR.position.set(2.0, 3.5, 0);
+    finialR.position.set(1.62, 2.58, 0);
     ownedGeometries.add(finialR.geometry);
     cpGroup.add(finialR);
 
     // Hanging Lantern
     const lantern = new THREE.Mesh(lanternGeo, lanternGlowMat);
-    lantern.position.set(0, 2.7, 0);
+    lantern.position.set(0, 1.98, 0);
     cpGroup.add(lantern);
 
     group.add(cpGroup);
