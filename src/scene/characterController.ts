@@ -346,7 +346,7 @@ export function createCharacterController(
       const dt = THREE.MathUtils.clamp(delta, 0.001, 0.05);
       // Treat held jump as one press. Repeatedly calling doJump while held can
       // continually refresh the jump buffer and cause an unintended auto-bunny-hop.
-      const jumpPressed = input.jump && !previousJumpInput;
+      const jumpPressed = !!input.jump && !previousJumpInput;
       previousJumpInput = !!input.jump;
 
       mixer.update(dt);
