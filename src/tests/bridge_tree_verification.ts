@@ -14,7 +14,7 @@ import {
   BRIDGE_HALF_LENGTH,
 } from '../scene/terrain';
 import { COURSE_ROUTES, getCourseSurface, getCourseAnticipation, getCourseBoardwalkOffset, COURSE_SURFACE_LIFT } from '../scene/courseLayout';
-import { advanceVerticalMotion, JUMP_INITIAL_SPEED } from '../scene/characterController';
+import { advanceVerticalMotion, GAME_FEEL, updateJumpAssistTimers } from '../scene/gameFeel';
 import { createMeadowCourse } from '../scene/courseSystem';
 import {
   calculateBridgeCorners,
@@ -411,7 +411,39 @@ if (underDeck.surfaceType === 'course' || descendingAboveDeck.surfaceType !== 'c
 }
 console.log('PASS: Course deck support is one-sided and height-aware.');
 
-console.log('\nTest 13: Shared jump trajectory across frame rates and frame hitches');
+console.log('\nTest 13: Centralized game-feel values and jump-assist timing');
+if (GAME_FEEL.coyoteTimeSeconds !== 0.16 || GAME_FEEL.jumpBufferSeconds !== 0.2) {
+  console.error('FAIL: Documented coyote/buffer timing changed unexpectedly.');
+  process.exit(1);
+}
+const coyoteStart = updateJumpAssistTimers(0, 0, true, false, 1 / 60);
+const coyoteMid = updateJumpAssistTimers(coyoteStart.coyoteTimer, 0, false, false, 0.1);
+const coyoteExpired = updateJumpAssistTimers(coyoteMid.coyoteTimer, 0, false, false, 0.07);
+if (Math.abs(coyoteStart.coyoteTimer - 0.16) > 1e-9
+  || Math.abs(coyoteMid.coyoteTimer - 0.06) > 1e-9
+  || coyoteExpired.coyoteTimer !== 0) {
+  console.error('FAIL: Coyote timer does not respect its configured duration.');
+  process.exit(1);
+}
+const buffered = updateJumpAssistTimers(0, GAME_FEEL.jumpBufferSeconds, true, false, 1 / 60);
+const rollingBuffer = updateJumpAssistTimers(0, GAME_FEEL.jumpBufferSeconds, true, true, 1 / 60);
+if (!buffered.consumeBufferedJump || rollingBuffer.consumeBufferedJump) {
+  console.error('FAIL: Buffered jump consumption ignores grounded/rolling state.');
+  process.exit(1);
+}
+const alphaAt30 = 1 - Math.exp(-GAME_FEEL.airControl / 30);
+const alphaAt60 = 1 - Math.exp(-GAME_FEEL.airControl / 60);
+const alphaAt120 = 1 - Math.exp(-GAME_FEEL.airControl / 120);
+const combined30 = 1 - (1 - alphaAt30) ** 2;
+const combined60 = 1 - (1 - alphaAt60) ** 2;
+if (Math.abs(combined30 - alphaAt60) > 1e-9 || Math.abs(combined60 - alphaAt120) > 1e-9) {
+  console.error('FAIL: Exponential movement response is not frame-rate consistent.');
+  process.exit(1);
+}
+console.log(`  Coyote: ${GAME_FEEL.coyoteTimeSeconds.toFixed(2)}s; buffer: ${GAME_FEEL.jumpBufferSeconds.toFixed(2)}s; air response: ${GAME_FEEL.airControl.toFixed(1)} s⁻¹`);
+console.log('PASS: Coyote/buffer clocks and exponential movement response meet their timing contracts.');
+
+console.log('\nTest 14: Shared jump trajectory across frame rates and frame hitches');
 function simulateJump(frameDelta: number) {
   let y = 0;
   let velocity = JUMP_INITIAL_SPEED;
@@ -451,7 +483,7 @@ if (jumpRuns.find((run) => run.label === '30 FPS')!.distance < 4.0) {
 }
 console.log('PASS: Gameplay and test share the same bounded-substep integrator; jump range remains within the current tolerance.');
 
-console.log('\nTest 14: Course scene cleanup is complete and idempotent');
+console.log('\nTest 15: Course scene cleanup is complete and idempotent');
 const lifecycleScene = new THREE.Scene();
 const lifecycleCourse = createMeadowCourse(lifecycleScene);
 const ownedObjectCount = lifecycleScene.children.length;
