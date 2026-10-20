@@ -140,3 +140,27 @@ These numbers are automated model outputs, not in-game telemetry, actual landing
 A code review also found and fixed a collision edge case: an actor exactly at an obstacle's centre was previously skipped by the distance epsilon guard. Collision resolution now chooses a deterministic separation normal (opposite incoming motion, or +X when stationary); the regression test checks the resolved centre distance against the obstacle plus player radius. This improves recovery from invalid/overlapping spawn states but does not replace swept collision detection for high-speed tunnelling.
 
 Automated checks do **not** replace a browser playthrough. Camera framing, visual seams, jump feel at different approach speeds, mobile readability, and performance still require runtime inspection on the target game build before the course can be called visually validated. The CI suite verifies the shared vertical integration algorithm, but does not yet simulate the complete character controller with horizontal acceleration, coyote time, collision footprint, and actual landing surfaces.
+
+
+## Traversal verification update — 20 October 2026
+
+The deterministic suite now includes a production-controller fixture and a geometry-derived jump-reach envelope. These are deliberately separated from live gameplay evidence.
+
+- **Authored gap geometry:** the shared mainline spline gives a horizontal endpoint chord of **3.47 m**; the sampled landing support is **0.13 m higher** than takeoff. The production vertical integrator, stepped at **1/120 s**, reaches that relative height after **0.717 s** in this fixture.
+- **Estimated constant-speed reach, not an actual jump:** 2.8 m/s walk = **2.01 m**, 5.2 m/s run = **3.73 m**, and 7.0 m/s sprint = **5.02 m** over that window. The 0.42 m horizontal collision radius is recorded separately: the current support query resolves the character root centre against the course, so body radius must not be added to the root-centre travel distance as if the resolver were a swept capsule. This supports the authored gap as a run/sprint challenge, but does **not** prove that a live jump lands reliably.
+- **Production controller movement:** createCharacterController(...).update(...) was exercised for one second of sprint input and one second of no-input braking at 30/60/120 FPS on a terrain fixture inside the meadow boundary. Sprint travel was **6.72 / 6.67 / 6.64 m**; residual horizontal speed after braking was **0.000 m/s** at each rate. The travel spread was **0.08 m**. These are automated fixture results, not browser telemetry or a player-feel judgment.
+- **Production jump assistance:** the actual controller update path was exercised for an initial jump followed by a jump press buffered during descent; the test observed the second takeoff. The coyote/buffer timer helper also has isolated unit tests.
+- **Surface resolver:** existing checks cover a missing support surface inside the gap, a descending landing query on the elevated course, and a character below the boardwalk not being pulled upward through it. These exercise production surface-query functions, but the complete controller has not yet been driven through the gap and observed landing on the far deck.
+- **Frame timing:** the shared controller delta clamp is tested for a 120 ms input hitch and invalid values. The complete controller is **not** on a fixed-step accumulator; horizontal movement and collision resolution are still render-update-driven.
+
+### Route-fiction audit and visual evidence
+
+The current course already has shared route geometry for the Meadow Mainline and Canopy Cut, moss-coloured shoulders, an amber direction guide, raised timber planks, and instanced support posts. The wider environment contains a fallen timber log near (-14, 2) and a campsite/worksite cluster with cut wood and a barrel. These provide a starting vocabulary for woodland use and repair.
+
+This iteration did **not** add new decorative props: no live preview/browser was available in the engineering session, and adding scenery blind would risk obscuring the playable lane or worsening camera framing. In particular, there is not yet visual evidence that the jump approach, gap edges, landing, Canopy Cut, merge, scenic reveal, return, and finish read as one coherent woodland worksite. The deck supports are functional visual structure in code, but rope lashings, damaged supports, cut-log placement, and route-specific worksite storytelling remain unverified rather than claimed as finished.
+
+### Verification and remaining gaps
+
+The repository CI-equivalent commands are npm run lint (TypeScript tsc --noEmit), npm test (the Node/tsx terrain, course, game-feel, and controller verification script), and npm run build (TypeScript compile plus Vite production bundle). A successful production build currently reports a **919.64 kB minified JavaScript chunk** (**255.86 kB gzip**) and Vite's over-500-kB chunk warning. That is a bundle-size warning, not measured runtime frame-time evidence; profiling remains separate.
+
+Still unverified: actual jump landings at slow, run, and sprint approach speeds; complete route traversal; camera framing and composition at the requested route checkpoints; mobile readability; screenshot-based visual coherence; runtime frame time, draw calls, GPU/CPU memory, and repeated scene lifecycle behaviour in a browser. Course-object disposal has an idempotency test, but this does not establish whole-scene resource correctness. No industry-leading or fully polished claim is warranted from these results.
