@@ -19,7 +19,8 @@ export interface ThirdPersonCamera {
     characterHeading?: number,
     characterVelocity?: THREE.Vector3,
     characterGrounded?: boolean,
-    characterVerticalSpeed?: number
+    characterVerticalSpeed?: number,
+    courseAnticipation?: number
   ) => void;
 }
 
@@ -123,7 +124,8 @@ export function createThirdPersonCamera(
       characterHeading?: number,
       characterVelocity?: THREE.Vector3,
       characterGrounded = true,
-      characterVerticalSpeed = 0
+      characterVerticalSpeed = 0,
+      courseAnticipation = 0
     ) => {
       const dt = THREE.MathUtils.clamp(delta, 0.001, 0.05);
       manualOrbitCooldown = Math.max(0, manualOrbitCooldown - dt);
@@ -159,12 +161,13 @@ export function createThirdPersonCamera(
 
       // Velocity-aware look-ahead makes the route visible before the knight reaches it.
       // Keep the offset bounded, and damp the focus independently to avoid jitter.
-      const lookAheadDistance = THREE.MathUtils.clamp(travelSpeed * 0.2, 0, 1.8);
+      const anticipation = THREE.MathUtils.clamp(courseAnticipation, 0, 1);
+      const lookAheadDistance = THREE.MathUtils.clamp(travelSpeed * 0.2, 0, 1.8) + anticipation * 0.5;
       _desiredTarget.set(
         characterPos.x + _travelDirection.x * lookAheadDistance,
         characterPos.y + 1.25 + (!characterGrounded
           ? THREE.MathUtils.clamp(characterVerticalSpeed * 0.035, -0.18, 0.28)
-          : 0),
+          : 0) + anticipation * 0.22,
         characterPos.z + _travelDirection.z * lookAheadDistance
       );
       if (!hasInitializedLookTarget) {
