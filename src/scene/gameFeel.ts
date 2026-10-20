@@ -71,6 +71,27 @@ export function getResponseAlpha(responsePerSecond: number, deltaSeconds: number
   return 1 - Math.exp(-responsePerSecond * deltaSeconds);
 }
 
+export interface HorizontalMotionStep {
+  x: number;
+  z: number;
+}
+
+/** Apply the exact exponential horizontal response used by the live controller. */
+export function advanceHorizontalVelocity(
+  velocityX: number,
+  velocityZ: number,
+  targetX: number,
+  targetZ: number,
+  responsePerSecond: number,
+  deltaSeconds: number,
+): HorizontalMotionStep {
+  const alpha = getResponseAlpha(responsePerSecond, deltaSeconds);
+  return {
+    x: velocityX + (targetX - velocityX) * alpha,
+    z: velocityZ + (targetZ - velocityZ) * alpha,
+  };
+}
+
 export interface JumpAssistTimers {
   coyoteTimer: number;
   jumpBufferTimer: number;
