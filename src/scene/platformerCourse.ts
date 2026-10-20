@@ -1392,6 +1392,15 @@ export function createPlatformerCourse(scene: THREE.Scene, seed = 42): Platforme
       }
     }
 
+    // Treat the authored fork as a landmark, not merely the nearest spline sample.
+    // The two branches diverge here, so camera composition should begin before the
+    // nearest-sample classifier flips from run-up to ramp/safe-route.
+    const splitNode = data.nodes.find((node) => node.id === 'split');
+    const nearSplit = !!splitNode && Math.hypot(
+      charPos.x - splitNode.position.x,
+      charPos.z - splitNode.position.z
+    ) < 3.4;
+
     const onCourse = nearestDist < 5.5;
     if (!onCourse) {
       _camLookTarget.copy(charPos).add(new THREE.Vector3(0, 1.25, 0));
@@ -1405,7 +1414,7 @@ export function createPlatformerCourse(scene: THREE.Scene, seed = 42): Platforme
     // Dynamic anticipation based on upcoming course landmark
     const lookAheadDist = THREE.MathUtils.clamp(speed * 0.45, 1.8, 4.2);
 
-    if (currentFeature === 'split') {
+    if (nearSplit || currentFeature === 'split') {
       // Frame both diverging route options at the fork
       _camLookTarget.set(18.0, charPos.y + 1.6, 2.0);
       return {
