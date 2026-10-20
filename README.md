@@ -66,7 +66,7 @@ npm install
 npm run dev    # Starts Vite dev server on 0.0.0.0:3000
 npm run build  # Compiles TypeScript and builds production bundle
 npm run lint   # Verifies TypeScript types with zero errors
-npx --yes tsx src/tests/bridge_tree_verification.ts  # Terrain, bridge, route, gap and profile checks
+npm test       # Bridge, route, gap, boardwalk, support-height, and jump-physics regression checks
 ```
 
 ## Asset Licenses
@@ -81,7 +81,7 @@ The current course is authored from the shared route definitions in `src/scene/c
 - **Mainline:** a warm limestone lane with restrained brass guidance, an elevated profile, and an optional jump gap.
 - **Canopy Cut:** a shorter, muted sage route that bypasses the gap and rejoins the mainline.
 - **Physical consistency:** lane width, lift profile, gap intervals, support normals, and merge elevations are queried from the same route definition. The visual gap and collision gap are both driven by the shared gap interval.
-- **Resource discipline:** route ribbons and guidance rings have explicit disposal; elevated timber supports are instanced to avoid one draw call per support.
+- **Resource discipline:** route ribbons and guidance rings have explicit disposal; repeated guidance cues, board planks, and timber supports use instancing. Board spacing is measured in metres, and plank thickness is shared with the support-height query.
 - **Palette discipline:** limestone, moss, sage, and brass are reused across the lane, edging, markers, and supports rather than introducing unrelated neon colors.
 
 ### Verification
@@ -90,10 +90,10 @@ The Node 20 GitHub Actions workflow runs:
 
 ```sh
 npm run lint
-npx --yes tsx src/tests/bridge_tree_verification.ts
+npm test
 npm run build
 ```
 
-The verification script checks bridge support, course entry distance, sampled obstacle and brook clearance, shortcut length, ramp grade limits, ramp-aware support normals, and the open collision gap.
+The verification suite checks bridge support, course entry distance, sampled obstacle and brook clearance, shortcut length, ramp grade limits, ramp-aware support normals, the open collision gap, one-sided elevated-deck support, boardwalk/support-height agreement, directional camera anticipation, and the shared jump integrator at 30/60/120 FPS plus a 120 ms frame hitch.
 
-Automated checks do **not** replace a browser playthrough. Camera framing, visual seams, jump feel at different approach speeds, mobile readability, and performance still require runtime inspection on the target game build before the course can be called visually validated.
+Automated checks do **not** replace a browser playthrough. Camera framing, visual seams, jump feel at different approach speeds, mobile readability, and performance still require runtime inspection on the target game build before the course can be called visually validated. The CI suite verifies the shared vertical integration algorithm, but does not yet simulate the complete character controller with horizontal acceleration, coyote time, collision footprint, and actual landing surfaces.
