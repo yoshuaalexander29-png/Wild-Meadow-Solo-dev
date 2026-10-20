@@ -614,3 +614,48 @@ if (lifecycleScene.children.length !== 0) {
 console.log(`PASS: ${ownedObjectCount} course scene objects removed; repeated disposal did not throw.`);
 
 console.log('\n=== ALL AUDIT TESTS PASSED SUCCESSFULLY ===');
+
+
+console.log('\\nTest 14: Authored gap reach envelope (vertical production integrator + route geometry)');
+const reachGap = mainRoute.gaps?.[0];
+if (!reachGap) {
+  console.error('FAIL: No authored mainline gap to measure.');
+  process.exit(1);
+}
+const reachCurve = new THREE.CatmullRomCurve3(
+  mainRoute.points.map(([x, z], index) => new THREE.Vector3(x, mainRoute.lifts[index] ?? 0, z)),
+  false,
+  'centripetal',
+  0.35,
+);
+const reachStart = reachCurve.getPointAt(reachGap[0]);
+const reachEnd = reachCurve.getPointAt(reachGap[1]);
+const reachDistance = Math.hypot(reachEnd.x - reachStart.x, reachEnd.z - reachStart.z);
+const reachStartGround = getTerrainHeight(reachStart.x, reachStart.z) + reachStart.y + COURSE_SURFACE_LIFT + getCourseBoardwalkOffset(reachStart.y);
+const reachEndGround = getTerrainHeight(reachEnd.x, reachEnd.z) + reachEnd.y + COURSE_SURFACE_LIFT + getCourseBoardwalkOffset(reachEnd.y);
+const launchHeightDelta = reachEndGround - reachStartGround;
+const reachStep = 1 / 120;
+let reachTime = 0;
+let reachY = 0;
+let reachV = GAME_FEEL.jumpInitialSpeed;
+let passedApex = false;
+while (reachTime < 2.0) {
+  const step = advanceVerticalMotion(reachV, reachStep);
+  reachV = step.velocity;
+  reachY += step.displacement;
+  reachTime += reachStep;
+  if (reachV <= 0) passedApex = true;
+  if (passedApex && reachY <= launchHeightDelta) break;
+}
+const assumedFootprintRadius = 0.42; // Same horizontal collision radius passed by the live controller.
+const conservativeRequiredReach = reachDistance + assumedFootprintRadius;
+const runReach = 5.2 * reachTime;
+const walkReach = 2.8 * reachTime;
+const sprintReach = 7.0 * reachTime;
+console.log(`  Horizontal gap chord: ${reachDistance.toFixed(2)}m; endpoint height delta: ${launchHeightDelta.toFixed(2)}m; integrated flight window: ${reachTime.toFixed(3)}s`);
+console.log(`  Constant-speed envelope (not full controller telemetry): walk 2.8m/s=${walkReach.toFixed(2)}m, run 5.2m/s=${runReach.toFixed(2)}m, sprint 7.0m/s=${sprintReach.toFixed(2)}m; conservative target ${conservativeRequiredReach.toFixed(2)}m including 0.42m collision-radius allowance`);
+if (reachTime >= 2.0 || !(walkReach < reachDistance) || runReach < conservativeRequiredReach || sprintReach < conservativeRequiredReach) {
+  console.error('FAIL: Current jump parameters do not produce the expected walk-fails / run-and-sprint-reach design envelope.');
+  process.exit(1);
+}
+console.log('PASS: Authored gap fits the nominal run/sprint reach envelope; walking speed is intentionally insufficient. This is a vertical-integrator/constant-horizontal-speed estimate, not an end-to-end controller jump.');
