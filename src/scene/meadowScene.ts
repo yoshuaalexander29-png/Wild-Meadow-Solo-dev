@@ -247,7 +247,8 @@ export function initMeadowScene(
         characterController.speed,
         characterController.model.rotation.y,
         characterController.velocity,
-        characterController.isGrounded
+        characterController.isGrounded,
+        characterController.verticalSpeed
       );
     } else {
       sun.position.set(initialKnightPos.x - 13, initialKnightPos.y + 20, initialKnightPos.z + 11);
