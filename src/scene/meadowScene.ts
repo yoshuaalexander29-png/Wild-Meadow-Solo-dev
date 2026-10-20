@@ -50,8 +50,13 @@ export function initMeadowScene(
 
   // Procedural studio environment map reflection for authentic PBR metals and water
   const pmremGenerator = new THREE.PMREMGenerator(renderer);
-  scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
+  const roomEnvironment = new RoomEnvironment();
+  const environmentTarget = pmremGenerator.fromScene(roomEnvironment, 0.04);
+  scene.environment = environmentTarget.texture;
+  // PMREMGenerator can be released after baking, but the target owns the texture
+  // still used by the scene and must remain alive until scene teardown.
   pmremGenerator.dispose();
+  roomEnvironment.dispose();
 
   // Camera setup
   const width = container.clientWidth || window.innerWidth;
@@ -495,6 +500,8 @@ export function initMeadowScene(
       dandelionSystem.dispose();
       cloudSystem.dispose();
       environment.dispose();
+      scene.environment = null;
+      environmentTarget.dispose();
       renderer.dispose();
 
       if (container.contains(dom)) {
