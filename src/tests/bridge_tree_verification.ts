@@ -602,6 +602,10 @@ console.log('\nTest 19: Course scene cleanup is complete and idempotent');
 const lifecycleScene = new THREE.Scene();
 const lifecycleCourse = createMeadowCourse(lifecycleScene);
 const ownedObjectCount = lifecycleScene.children.length;
+if (!lifecycleScene.children.some((object) => object.name === 'MeadowCourse_InstancedTimberCrossbeams')) {
+  console.error('FAIL: Raised route is missing its instanced under-deck crossbeam structure.');
+  process.exit(1);
+}
 if (ownedObjectCount < 5) {
   console.error(`FAIL: Expected route and instanced course objects, found ${ownedObjectCount}.`);
   process.exit(1);
