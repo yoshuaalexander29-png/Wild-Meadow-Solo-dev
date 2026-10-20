@@ -637,7 +637,7 @@ const launchHeightDelta = reachEndGround - reachStartGround;
 const reachStep = 1 / 120;
 let reachTime = 0;
 let reachY = 0;
-let reachV = GAME_FEEL.jumpInitialSpeed;
+let reachV: number = GAME_FEEL.jumpInitialSpeed;
 let passedApex = false;
 while (reachTime < 2.0) {
   const step = advanceVerticalMotion(reachV, reachStep);
