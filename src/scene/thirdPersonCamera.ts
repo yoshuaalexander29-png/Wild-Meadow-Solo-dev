@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { getTerrainHeight } from './terrain';
+import { GAME_FEEL } from './gameFeel';
 
 export interface ThirdPersonCamera {
   camera: THREE.PerspectiveCamera;
@@ -155,14 +156,14 @@ export function createThirdPersonCamera(
         targetYaw += THREE.MathUtils.clamp(yawError * autoResponse, -maxAutoTurn, maxAutoTurn);
       }
 
-      currentYaw += shortestAngleDelta(targetYaw, currentYaw) * (1 - Math.exp(-16.0 * dt));
+      currentYaw += shortestAngleDelta(targetYaw, currentYaw) * (1 - Math.exp(-GAME_FEEL.cameraYawResponse * dt));
       currentPitch = THREE.MathUtils.damp(currentPitch, targetPitch, 16.0, dt);
       currentDistance = THREE.MathUtils.damp(currentDistance, targetDistance, 14.0, dt);
 
       // Velocity-aware look-ahead makes the route visible before the knight reaches it.
       // Keep the offset bounded, and damp the focus independently to avoid jitter.
       const anticipation = THREE.MathUtils.clamp(courseAnticipation, 0, 1);
-      const lookAheadDistance = THREE.MathUtils.clamp(travelSpeed * 0.2, 0, 1.8) + anticipation * 0.5;
+      const lookAheadDistance = THREE.MathUtils.clamp(travelSpeed * GAME_FEEL.cameraSpeedLookAheadSeconds, 0, GAME_FEEL.cameraMaxLookAheadMetres) + anticipation * 0.5;
       _desiredTarget.set(
         characterPos.x + _travelDirection.x * lookAheadDistance,
         characterPos.y + 1.25 + (!characterGrounded
@@ -174,7 +175,7 @@ export function createThirdPersonCamera(
         _camTarget.copy(_desiredTarget);
         hasInitializedLookTarget = true;
       } else {
-        _camTarget.lerp(_desiredTarget, 1 - Math.exp(-7.5 * dt));
+        _camTarget.lerp(_desiredTarget, 1 - Math.exp(-GAME_FEEL.cameraLookTargetResponse * dt));
       }
       const targetLook = _camTarget;
 
@@ -225,7 +226,7 @@ export function createThirdPersonCamera(
       }
 
       // Exponential smoothing is frame-rate independent and remains stable after hitches.
-      _currentPos.lerp(_idealPos, 1 - Math.exp(-14.0 * dt));
+      _currentPos.lerp(_idealPos, 1 - Math.exp(-GAME_FEEL.cameraFollowResponse * dt));
 
       // FOV is intentionally fixed at initialization; do not rebuild the projection
       // matrix every frame when no projection parameter has changed.
