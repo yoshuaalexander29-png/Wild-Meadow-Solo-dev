@@ -371,14 +371,14 @@ console.log('PASS: Camera cue increases look-ahead only when approaching the jum
 
 
 console.log('\nTest 11: Rendered boardwalk and support-query height agreement');
-const boardwalkLift = 0.65;
-const boardwalkProbe = getCourseSurface(24.5, -9.0, getTerrainHeight);
-const expectedBoardwalkOffset = getCourseBoardwalkOffset(boardwalkLift);
+const boardwalkPoint = mainCurveWithLift.getPointAt(0.55);
+const boardwalkProbe = getCourseSurface(boardwalkPoint.x, boardwalkPoint.z, getTerrainHeight);
+const expectedBoardwalkOffset = getCourseBoardwalkOffset(boardwalkPoint.y);
 if (!boardwalkProbe || expectedBoardwalkOffset <= 0) {
   console.error('FAIL: Elevated boardwalk fixture is missing.');
   process.exit(1);
 }
-const boardwalkBaseHeight = getTerrainHeight(24.5, -9.0) + boardwalkLift + COURSE_SURFACE_LIFT;
+const boardwalkBaseHeight = getTerrainHeight(boardwalkPoint.x, boardwalkPoint.z) + boardwalkPoint.y + COURSE_SURFACE_LIFT;
 const boardwalkHeightError = Math.abs(boardwalkProbe.height - (boardwalkBaseHeight + expectedBoardwalkOffset));
 console.log(`  Expected boardwalk offset: ${expectedBoardwalkOffset.toFixed(3)}m; height error: ${boardwalkHeightError.toFixed(4)}m`);
 if (boardwalkHeightError > 0.001) {
