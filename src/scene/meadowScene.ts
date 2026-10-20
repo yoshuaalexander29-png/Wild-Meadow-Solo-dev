@@ -126,17 +126,58 @@ export function initMeadowScene(
 
   onStatusChange?.('The knight is ready for exploration.', true);
 
+  // Scene lifetime is established before any asynchronous asset request. A late GLTF
+  // callback must never attach objects or create a controller after dispose().
+  let paused = false;
+  let animId = 0;
+  let destroyed = false;
+
+  // Dispose only resources owned by a rejected/late GLTF payload. GLTF materials may
+  // share textures, so collect resources in sets to avoid duplicate dispose calls.
+  function disposeLoadedGltf(root: THREE.Object3D) {
+    const geometries = new Set<THREE.BufferGeometry>();
+    const materials = new Set<THREE.Material>();
+    const textures = new Set<THREE.Texture>();
+    root.traverse((object) => {
+      const mesh = object as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      if (mesh.geometry) geometries.add(mesh.geometry);
+      const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      for (const material of list) {
+        if (!material) continue;
+        materials.add(material);
+        for (const value of Object.values(material)) {
+          if (value && typeof value === 'object' && (value as THREE.Texture).isTexture) {
+            textures.add(value as THREE.Texture);
+          }
+        }
+      }
+    });
+    geometries.forEach((geometry) => geometry.dispose());
+    materials.forEach((material) => material.dispose());
+    textures.forEach((texture) => texture.dispose());
+  }
+
   // Optional background enhancement: if external Quaternius GLTF is available & permitted
   const loader = new GLTFLoader();
   loader.load(
     ASSETS.warrior,
     (gltf) => {
+      const root = gltf.scene;
+      // Loading can finish after React unmounts the scene. Do not resurrect a disposed
+      // renderer/controller tree; release the payload immediately instead.
+      if (destroyed) {
+        disposeLoadedGltf(root);
+        return;
+      }
       try {
-        const root = gltf.scene;
         const box = new THREE.Box3().setFromObject(root);
         const size = box.getSize(new THREE.Vector3());
         const center = box.getCenter(new THREE.Vector3());
-        if (!Number.isFinite(size.y) || size.y < 0.05) return;
+        if (!Number.isFinite(size.y) || size.y < 0.05) {
+          disposeLoadedGltf(root);
+          return;
+        }
 
         // Wrap in properly offset child pivot so box.min.y is never submerged
         const targetHeight = 2.15;
@@ -202,9 +243,6 @@ export function initMeadowScene(
   );
 
   // Runtime State
-  let paused = false;
-  let animId = 0;
-  let destroyed = false;
   const clock = new THREE.Clock();
 
   let movementInput: MovementInput = { x: 0, y: 0, sprint: false, jump: false };
