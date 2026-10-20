@@ -146,6 +146,53 @@ export function createMeadowCourse(scene: THREE.Scene): MeadowCourse {
   scene.add(ringInstances);
   owned.push(ringInstances);
 
+  // Timber decking turns the elevated route into a readable boardwalk rather than
+  // a paper-thin ribbon. Repeated boards are instanced and omitted across the jump.
+  const plankGeometry = new THREE.BoxGeometry(1, 0.07, 0.24);
+  const plankMaterial = new THREE.MeshStandardMaterial({
+    color: '#b18a5c',
+    roughness: 0.92,
+    metalness: 0,
+  });
+  const planks = new THREE.InstancedMesh(plankGeometry, plankMaterial, 512);
+  planks.name = 'MeadowCourse_InstancedBoardwalkDeck';
+  planks.castShadow = true;
+  planks.receiveShadow = true;
+  const plankPosition = new THREE.Vector3();
+  const plankTangent = new THREE.Vector3();
+  const plankScale = new THREE.Vector3();
+  const plankRotation = new THREE.Quaternion();
+  const plankMatrix = new THREE.Matrix4();
+  let plankIndex = 0;
+  for (const { curve, definition } of routes) {
+    for (let t = 0.02; t < 0.99 && plankIndex < 512; t += 0.032) {
+      const progress = t;
+      if ((definition.gaps ?? []).some(([start, end]) => progress >= start && progress <= end)) continue;
+      curve.getPointAt(t, _supportPoint);
+      if (_supportPoint.y < 0.42) continue;
+      curve.getTangentAt(t, plankTangent).setY(0).normalize();
+      const terrainY = getTerrainHeight(_supportPoint.x, _supportPoint.z);
+      plankPosition.set(
+        _supportPoint.x,
+        terrainY + _supportPoint.y + COURSE_SURFACE_LIFT + 0.035,
+        _supportPoint.z,
+      );
+      plankRotation.setFromUnitVectors(_up.clone().set(0, 0, 1), plankTangent);
+      plankScale.set(definition.width + definition.edge * 1.25, 1, 1);
+      plankMatrix.compose(plankPosition, plankRotation, plankScale);
+      planks.setMatrixAt(plankIndex++, plankMatrix);
+    }
+  }
+  planks.count = plankIndex;
+  planks.instanceMatrix.needsUpdate = true;
+  if (plankIndex > 0) {
+    scene.add(planks);
+    owned.push(planks);
+  } else {
+    plankGeometry.dispose();
+    plankMaterial.dispose();
+  }
+
   // Instanced timber supports make elevated sections read as real structures
   // while keeping their draw-call cost constant as the course sampling is refined.
   const supportGeometry = new THREE.CylinderGeometry(0.075, 0.12, 1, 8);
