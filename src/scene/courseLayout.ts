@@ -82,6 +82,54 @@ const routeSamples = COURSE_ROUTES.map((route) => {
   });
 });
 
+interface CourseGapApproach {
+  x: number;
+  z: number;
+  tangentX: number;
+  tangentZ: number;
+}
+
+const courseGapApproaches: CourseGapApproach[] = COURSE_ROUTES.flatMap((route) => {
+  const curve = new THREE.CatmullRomCurve3(
+    route.points.map(([x, z], index) => new THREE.Vector3(x, route.lifts[index] ?? 0, z)),
+    false,
+    'centripetal',
+    0.35,
+  );
+  return (route.gaps ?? []).map(([start]) => {
+    const approachT = Math.max(0, start - 0.015);
+    const point = curve.getPointAt(approachT);
+    const tangent = curve.getTangentAt(approachT).setY(0).normalize();
+    return { x: point.x, z: point.z, tangentX: tangent.x, tangentZ: tangent.z };
+  });
+});
+
+/**
+ * Smooth 0..1 camera cue for a gap ahead. It activates only when the player is
+ * moving toward the gap and aligned with its approach, not when passing nearby
+ * on the shortcut or turning away. No scene objects or per-frame vectors needed.
+ */
+export function getCourseAnticipation(x: number, z: number, velocityX: number, velocityZ: number): number {
+  const speed = Math.hypot(velocityX, velocityZ);
+  if (speed < 1.0) return 0;
+  const directionX = velocityX / speed;
+  const directionZ = velocityZ / speed;
+  let best = 0;
+  for (const gap of courseGapApproaches) {
+    const toX = gap.x - x;
+    const toZ = gap.z - z;
+    const distance = Math.hypot(toX, toZ);
+    if (distance < 0.5 || distance > 10.0) continue;
+    const towardGap = (directionX * toX + directionZ * toZ) / distance;
+    const routeAlignment = directionX * gap.tangentX + directionZ * gap.tangentZ;
+    if (towardGap <= 0.25 || routeAlignment <= 0.25) continue;
+    const proximity = 1.0 - distance / 10.0;
+    const facing = Math.min(1, (towardGap - 0.25) / 0.75, (routeAlignment - 0.25) / 0.75);
+    best = Math.max(best, THREE.MathUtils.clamp(proximity * facing, 0, 1));
+  }
+  return best;
+}
+
 export interface CourseSurface {
   height: number;
   normal: THREE.Vector3;
