@@ -33,6 +33,41 @@ export interface CharacterController {
   dispose: () => void;
 }
 
+/**
+ * Shared jump integration used by the controller and deterministic regression checks.
+ * Substeps cap the integration interval at 1/120 s so frame hitches do not create
+ * oversized gravity steps and 30/60/120 FPS trajectories remain comparable.
+ */
+export const JUMP_GRAVITY = 21.0;
+export const JUMP_INITIAL_SPEED = 7.2;
+export const JUMP_APEX_HANG_THRESHOLD = 1.8;
+export const JUMP_APEX_GRAVITY_SCALE = 0.65;
+export const JUMP_PHYSICS_MAX_STEP = 1 / 120;
+
+export interface VerticalMotionStep {
+  velocity: number;
+  displacement: number;
+}
+
+export function advanceVerticalMotion(velocity: number, deltaSeconds: number): VerticalMotionStep {
+  if (!Number.isFinite(velocity) || !Number.isFinite(deltaSeconds) || deltaSeconds <= 0) {
+    return { velocity, displacement: 0 };
+  }
+  let remaining = deltaSeconds;
+  let nextVelocity = velocity;
+  let displacement = 0;
+  while (remaining > 1e-8) {
+    const dt = Math.min(remaining, JUMP_PHYSICS_MAX_STEP);
+    const gravityScale = Math.abs(nextVelocity) < JUMP_APEX_HANG_THRESHOLD
+      ? JUMP_APEX_GRAVITY_SCALE
+      : 1;
+    nextVelocity -= JUMP_GRAVITY * gravityScale * dt;
+    displacement += nextVelocity * dt;
+    remaining -= dt;
+  }
+  return { velocity: nextVelocity, displacement };
+}
+
 const _camForward = new THREE.Vector3();
 const _camRight = new THREE.Vector3();
 const _moveDir = new THREE.Vector3();
@@ -121,8 +156,7 @@ export function createCharacterController(
 
   let isGrounded = true;
   let verticalVelocity = 0;
-  const baseGravity = 21.0;
-  const jumpSpeed = 7.2;
+  
 
   // Coyote time & Jump buffering
   let coyoteTimer = 0;
@@ -212,7 +246,7 @@ export function createCharacterController(
     isGrounded = false;
     coyoteTimer = 0;
     jumpBufferTimer = 0;
-    verticalVelocity = jumpSpeed;
+    verticalVelocity = JUMP_INITIAL_SPEED;
 
     if (jumpAction) {
       jumpAction.timeScale = 1.15;
@@ -493,9 +527,9 @@ export function createCharacterController(
 
       if (!isGrounded) {
         // Apex hang-time
-        const apexFactor = Math.abs(verticalVelocity) < 1.8 ? 0.65 : 1.0;
-        verticalVelocity -= baseGravity * apexFactor * dt;
-        root.position.y += verticalVelocity * dt;
+        const verticalStep = advanceVerticalMotion(verticalVelocity, dt);
+        verticalVelocity = verticalStep.velocity;
+        root.position.y += verticalStep.displacement;
 
         if (root.position.y <= groundY) {
           // Landing touchdown
