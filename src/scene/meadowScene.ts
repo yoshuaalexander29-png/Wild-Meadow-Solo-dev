@@ -10,6 +10,8 @@ import { createCloudSystem, type CloudSystem } from './cloudSystem';
 import { createCharacterController, type CharacterController } from './characterController';
 import { createThirdPersonCamera, type ThirdPersonCamera } from './thirdPersonCamera';
 import { createHeroKnight } from './heroCharacter';
+import { createPlatformerCourse, type PlatformerCourse } from './platformerCourse';
+import { createSurfaceResolver } from './surfaceResolver';
 
 const ASSETS = {
   warrior: 'https://cdn.cinevva.com/assets/packs/quaternius/ultimate-animated-characters/Knight_Male.glb?download=1',
@@ -49,9 +51,12 @@ export function initMeadowScene(
   scene.fog = new THREE.Fog('#7ec2ea', 55, 165);
 
   // Procedural studio environment map reflection for authentic PBR metals and water
+  const roomEnv = new RoomEnvironment();
   const pmremGenerator = new THREE.PMREMGenerator(renderer);
-  scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
+  const envTarget = pmremGenerator.fromScene(roomEnv, 0.04);
+  scene.environment = envTarget.texture;
   pmremGenerator.dispose();
+  roomEnv.dispose();
 
   // Camera setup
   const width = container.clientWidth || window.innerWidth;
@@ -92,7 +97,11 @@ export function initMeadowScene(
   // 4. Authored Painterly Ghibli Cumulus Cloud Formations
   const cloudSystem: CloudSystem = createCloudSystem(scene);
 
-  // 5. Hero Character Controller Setup (Spawned immediately on campsite path)
+  // 5. Studio-Grade Procedural Platformer Course & Surface Resolver
+  const platformerCourse: PlatformerCourse = createPlatformerCourse(scene);
+  const surfaceResolver = createSurfaceResolver(platformerCourse);
+
+  // 6. Hero Character Controller Setup (Spawned immediately on campsite path)
   const initialKnightPos = new THREE.Vector3(
     SAFE_RESPAWN.x,
     getTerrainHeight(SAFE_RESPAWN.x, SAFE_RESPAWN.z),
@@ -108,19 +117,22 @@ export function initMeadowScene(
 
   const thirdPersonCam: ThirdPersonCamera = createThirdPersonCamera(camera, initialKnightPos);
 
-  let characterController: CharacterController = createCharacterController(
+  const characterController: CharacterController = createCharacterController(
     heroKnight.group,
     [],
     scene,
     {
-      onDeathState: (isDead, reason) => {
-        if (isDead && reason) {
-          onStatusChange?.(reason, false);
-        }
+      callbacks: {
+        onDeathState: (isDead, reason) => {
+          if (isDead && reason) {
+            onStatusChange?.(reason, false);
+          }
+        },
+        onImpact: (trauma) => {
+          thirdPersonCam.addTrauma(trauma);
+        },
       },
-      onImpact: (trauma) => {
-        thirdPersonCam.addTrauma(trauma);
-      },
+      surfaceResolver,
     }
   );
 
@@ -131,12 +143,34 @@ export function initMeadowScene(
   loader.load(
     ASSETS.warrior,
     (gltf) => {
+      // Guard against destroyed scene or unmounted applet
+      if (destroyed) {
+        gltf.scene.traverse((o) => {
+          if ((o as THREE.Mesh).isMesh) {
+            const m = o as THREE.Mesh;
+            m.geometry?.dispose();
+            if (Array.isArray(m.material)) m.material.forEach((mat) => mat.dispose());
+            else m.material?.dispose();
+          }
+        });
+        return;
+      }
       try {
         const root = gltf.scene;
         const box = new THREE.Box3().setFromObject(root);
         const size = box.getSize(new THREE.Vector3());
         const center = box.getCenter(new THREE.Vector3());
-        if (!Number.isFinite(size.y) || size.y < 0.05) return;
+        if (!Number.isFinite(size.y) || size.y < 0.05) {
+          root.traverse((o) => {
+            if ((o as THREE.Mesh).isMesh) {
+              const m = o as THREE.Mesh;
+              m.geometry?.dispose();
+              if (Array.isArray(m.material)) m.material.forEach((mat) => mat.dispose());
+              else m.material?.dispose();
+            }
+          });
+          return;
+        }
 
         // Wrap in properly offset child pivot so box.min.y is never submerged
         const targetHeight = 2.15;
@@ -163,34 +197,23 @@ export function initMeadowScene(
         });
 
         pivotWrapper.add(root);
-        pivotWrapper.position.copy(characterController.position);
-        pivotWrapper.rotation.copy(characterController.model.rotation);
 
-        // Seamlessly hot-swap to the animated GLTF model while preserving current position & state
-        const oldPos = characterController.position.clone();
-        const oldRotY = heroKnight.group.rotation.y;
+        if (destroyed) {
+          pivotWrapper.traverse((o) => {
+            if ((o as THREE.Mesh).isMesh) {
+              const m = o as THREE.Mesh;
+              m.geometry?.dispose();
+              if (Array.isArray(m.material)) m.material.forEach((mat) => mat.dispose());
+              else m.material?.dispose();
+            }
+          });
+          return;
+        }
 
-        scene.remove(heroKnight.group);
-        scene.add(pivotWrapper);
-
-        characterController.dispose();
-        characterController = createCharacterController(
-          pivotWrapper,
-          gltf.animations || [],
-          scene,
-          {
-            onDeathState: (isDead, reason) => {
-              if (isDead && reason) {
-                onStatusChange?.(reason, false);
-              }
-            },
-            onImpact: (trauma) => {
-              thirdPersonCam.addTrauma(trauma);
-            },
-          }
-        );
-        characterController.model.position.copy(oldPos);
-        characterController.model.rotation.y = oldRotY;
+        // Seamlessly hot-swap visual model on stable physics controller, preserving velocity, verticalSpeed, grounded, progress
+        if (characterController.setVisualModel) {
+          characterController.setVisualModel(pivotWrapper, gltf.animations || []);
+        }
       } catch (e) {
         // Fallback procedural knight remains active flawlessly
       }
@@ -240,6 +263,13 @@ export function initMeadowScene(
 
       grassSystem.update(timeInSeconds, characterController.position, delta);
 
+      const courseContext = platformerCourse.getCameraContext(
+        characterController.position,
+        characterController.model.rotation.y,
+        characterController.speed
+      );
+      platformerCourse.updateProgress(characterController.position, delta);
+
       thirdPersonCam.update(
         delta,
         characterController.position,
@@ -248,7 +278,9 @@ export function initMeadowScene(
         characterController.model.rotation.y,
         characterController.velocity,
         characterController.isGrounded,
-        characterController.verticalSpeed
+        characterController.verticalSpeed,
+        courseContext,
+        surfaceResolver
       );
     } else {
       sun.position.set(initialKnightPos.x - 13, initialKnightPos.y + 20, initialKnightPos.z + 11);
@@ -434,6 +466,7 @@ export function initMeadowScene(
       if (characterController) {
         characterController.respawn();
       }
+      platformerCourse.resetProgress();
       thirdPersonCam.yaw = 0;
       thirdPersonCam.pitch = 0.28;
       thirdPersonCam.distance = 5.2;
@@ -452,11 +485,13 @@ export function initMeadowScene(
       dom.removeEventListener('pointercancel', onPointerUp);
       dom.removeEventListener('wheel', onWheel);
 
+      platformerCourse.dispose();
       characterController?.dispose();
       grassSystem.dispose();
       dandelionSystem.dispose();
       cloudSystem.dispose();
       environment.dispose();
+      envTarget.dispose();
       renderer.dispose();
 
       if (container.contains(dom)) {

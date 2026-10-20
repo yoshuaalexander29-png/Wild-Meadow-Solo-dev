@@ -1,0 +1,383 @@
+Wild Meadow — Studio-Grade Procedural Platformer Course
+
+You are acting as a senior gameplay engineer, technical level designer, rendering engineer and QA lead. Work directly in the existing repository and implement the feature. This is not a request for a plan, mock-up, tutorial or partial implementation.
+
+Repository: https://github.com/yoshuaalexander29-png/Wild-Meadow-Solo-dev
+
+Target branch: improve/adaptive-platformer-camera
+
+1. Mission and non-negotiable rules
+
+Build a complete, playable, procedurally generated 3D platformer course that feels deliberately designed: a readable run-up, meaningful route choice, elevated ramp, reachable jump, landing platform, banked turn, shared route merge, scenic reveal, checkpoints and finish.
+
+Take inspiration from the gameplay principles of Sonic Lost World—momentum, readable geometry, alternate paths, shortcuts and spatial variety—without copying its art or levels. Preserve Wild Meadow’s existing cozy, stylized meadow aesthetic.
+
+Rules:
+
+* Inspect the actual current branch and code before editing. Verify the commit, working-tree status, scripts and existing architecture; do not assume this brief matches every line of the live repository.
+* Preserve unrelated user changes. Do not reset, force-push or overwrite unrelated work.
+* Implement the complete feature and integrate it into the existing scene. Do not stop after proposing architecture or generating isolated meshes.
+* Preserve existing movement, controls, animation, audio, bridge, stepping stones, terrain, trees, mobile support and free exploration unless a targeted change is required and tested.
+* Do not add a remote asset dependency for the course. Build the course with the existing Three.js stack and geometry/materials appropriate to the current world. Do not add new Quaternius assets.
+* Do not perform a wholesale controller or renderer rewrite when a targeted change will solve the problem.
+* Do not claim a build, test, screenshot, performance target or gameplay check passed unless you actually ran or inspected it.
+* Do not claim the result beats an industry-leading studio. Report measurable evidence and remaining limitations honestly.
+
+2. Source audit: investigate these exact integration points
+
+Use the actual current files and verify the findings below before changing them.
+
+Terrain and movement
+
+* src/scene/terrain.ts, especially getWalkableSurface() around lines 287–361, currently prioritizes the bridge, stepping stones, water and ordinary terrain using horizontal position. It does not select a surface based on the character’s height or vertical direction.
+* src/scene/characterController.ts uses getWalkableSurface(x, z) and its airborne landing logic lands whenever the character’s Y position is at or below the returned ground height. A character below an elevated surface can therefore snap upward if that surface is selected incorrectly.
+* The controller’s current nominal jump impulse is 7.2, gravity is 21.0, and the existing movement code includes grounded/airborne velocity interpolation. Verify all values and logic against the actual branch.
+* The controller currently derives terrain pitch from -surface.normal.z * 0.38, clamped to approximately ±0.28 radians, and derives dynamic banking from heading change. This is not a sufficient general solution for diagonal ramps and banked surfaces.
+* resolveCollision() in terrain.ts uses X/Z obstacle circles and a radius-48 boundary. Its obstacle collisions are not height-aware, and its near-zero-distance case should be handled safely.
+* The controller queries the surface more than once per update. Avoid adding expensive allocations or global scans to this hot path.
+
+Camera
+
+* src/scene/thirdPersonCamera.ts currently uses velocity-aware facing, smoothing and a bounded look-ahead of roughly 1.8 metres. Its obstruction checks are terrain-oriented and do not adequately account for elevated course geometry.
+* Extend this camera; do not replace it with an abrupt rail camera or force cinematic rotations that override manual orbit.
+
+Character model loading
+
+* src/scene/meadowScene.ts loads the optional GLTF knight asynchronously and replaces the active controller when it finishes.
+* The replacement copies position and yaw but does not preserve the complete movement state. It can reset velocity, airborne state, jump buffering and other logical state if loading completes during gameplay.
+* The asynchronous callback has no sufficient destroyed-scene guard. Invalid assets or failures during preparation must not leak resources or leave partially inserted scene objects.
+* Prefer a stable physics root with a replaceable visual child. The controller should continue to own position, velocity, grounded state, jump state and course progress while the visual model and animation mixer are replaced. If that is too invasive, implement complete explicit state transfer; copying only position and yaw is not sufficient.
+
+Resource ownership
+
+Verify and repair the actual disposal paths in:
+
+* src/scene/heroCharacter.ts: procedural character geometry and materials must be released.
+* src/scene/bridgeSystem.ts: bridge-owned geometry as well as materials must be released.
+* src/scene/environment.ts: removing landmarkGroup does not dispose its descendants’ geometries/materials. Trees share materials, while other landmarks own their materials. Dispose owned resources once, with explicit ownership.
+* src/scene/dustSystem.ts: it creates shared base sprite materials and cloned particle materials; dispose the base materials too.
+* src/scene/meadowScene.ts: retain and dispose the PMREM render target, dispose the RoomEnvironment after baking, and clean up loaded GLTF resources.
+* All affected dispose() methods must be safe to call repeatedly. Do not blindly dispose shared resources once per mesh.
+
+The TreeInstance interface in treeSystem.ts must not be treated as proof that returned trees have a dispose() method: verify the actual return type and implement cleanup accordingly.
+
+Tests and documentation
+
+* The audited package.json has dev, build, lint and preview scripts, but no test script. The existing src/tests/bridge_tree_verification.ts is a standalone verification script, not an integrated test suite.
+* No root package lockfile or CI workflow was found in the audited snapshot. Inspect the current branch before adding either.
+* README.md has stale controls and values, including sprint-speed and zoom-range descriptions. Update it to match the actual controls and implemented feature.
+
+3. Architecture: one source of truth
+
+Create a clear, maintainable course system. You may use src/scene/platformerCourse.ts plus a separate course runtime module, or another architecture if it is demonstrably better.
+
+Separate these responsibilities:
+
+1. Course data/generator: deterministic graph, nodes, segments, widths, elevation profiles, route choices, checkpoints, launch/landing metadata and finish state.
+2. Course geometry: rendered top surfaces, underside/thickness where required, rails, supports, path markings and junction meshes.
+3. Surface resolver: gameplay support candidates derived from the same sampled geometry.
+4. Route progression: current route/segment, branch choice, checkpoint and finish handling.
+5. Camera context: upcoming turns, ramps, landing targets, banked sections and reveals.
+6. Resource ownership: explicit, idempotent cleanup for every owned object.
+
+Use per-scene instances and dependency injection. Do not add a mutable global course singleton or create a circular dependency in which terrain.ts imports a course module that itself imports terrain.
+
+Generate the course data once per scene using a deterministic seed. Use an authored, constrained route topology with controlled procedural variation—not random independent platform placement. A fixed default seed must always produce the same course. A developer-only seed override may be added for reproducible testing.
+
+The rendered geometry, course collision, route metadata, ground-path markings and camera context must all derive from the same course data.
+
+4. Candidate first-course design
+
+Use this as a source-aware starting hypothesis, not as coordinates that must be kept if actual spline or mesh validation rejects them.
+
+The preliminary corridor was checked against the current terrain formula, static obstacle circles, stream and movement boundary. Those checks used straight segments, not final curves; they do not prove the rendered course is clear.
+
+Start and run-up
+
+* Start gate near (6, 0), approximately 4.8 metres from the existing safe respawn point (1.2, 0.2).
+* Use a readable run-up toward (15, 0).
+* Default course width: approximately 3 metres.
+* Give the split a broad, readable junction area. The player should be able to see and understand both exits.
+
+Upper skill route
+
+Candidate centreline and terrain-relative height offsets:
+
+Point	Height above terrain	Purpose
+(15, 0)	0 m	Split
+(16, 4)	0.8 m	Rising approach
+(18, 12)	2.8 m	Elevated ramp
+(19, 14)	3.5 m	Ramp crest approach
+(20, 16)	4.3 m	Takeoff point
+(24.5, 17.5)	4.5 m	Landing-platform centre
+(27.5, 20.5)	4.4 m	Broad banked turn
+(30, 22)	4.4 m	Shared merge
+
+Use a real, continuous ramp profile. The ramp must be physically walkable, not merely a sloped-looking mesh placed over unrelated collision. Where the ramp rises too little to provide under-deck clearance, integrate its underside into a solid berm or otherwise prevent physical clipping.
+
+The landing platform should be approximately 4.5 metres wide and 3 metres long along its route direction. The candidate takeoff-to-platform-centre distance is about 4.74 metres. This makes the nominal ramp-lip-to-near-edge gap about 3.24 metres, subject to the final platform orientation and geometry.
+
+The estimated takeoff and landing centre heights differ by only about 2.5 centimetres with the proposed terrain-relative offsets. These are initial targets; recalculate them from the actual generated terrain and geometry.
+
+Use a smooth banked turn via (27.5, 20.5) rather than forcing a sharp corner. The sampled curve must satisfy the camera’s ability to follow it at sprint speed.
+
+Safe route
+
+Candidate centreline and terrain-relative height offsets:
+
+Point	Height above terrain	Purpose
+(15, 0)	0 m	Split
+(14, -5.5)	0 m	Turn away from existing obstacles
+(24, -8)	0 m	Ground route
+(28, 0)	0.5 m	Gentle rise begins
+(28, 10)	1.5 m	Gradual ramp
+(30, 20)	4.2 m	Approaching merge height
+(30, 22)	4.4 m	Shared merge
+
+This route should be longer but forgiving: no mandatory jump. It should remain visibly readable and rejoin the same course without an abrupt height step.
+
+The route may pass beneath elevated geometry only if the final geometry provides adequate character headroom, support placement is clear of the path, and surface selection correctly distinguishes the lower surface from the platform above. Do not create an unintended underpass or rely on invisible barriers to force the intended route.
+
+Shared return and finish
+
+After the merge:
+
+* Continue near (35, 22) at the shared elevated height.
+* Descend smoothly toward terrain around (35, 5). A sampled return ramp over this distance should remain within the controller’s tested slope limits.
+* Continue along the outer eastern corridor through approximately (35, -3), (28, -9.5), (22, -9.5) and finish near (18, -8).
+* Keep the course inside the current movement boundary and safely clear of the stream. The finish should be on dry ground.
+* Use the merge/lookout as the scenic reveal and provide visible checkpoints and a finish marker.
+
+The preliminary straight-line sketch has an outer radius of about 43.3 metres when accounting for the 3-metre course width and 0.42-metre character radius, inside the current 48-metre boundary. Its narrowest obstacle margin was about 0.58 metres after accounting for the proposed width, character radius and 0.5-metre safety margin. The approximate water clearance was about 1 metre after accounting for the route width and character radius.
+
+These margins are not generous enough to ignore curve smoothing. If the actual spline, rails, supports or platform footprint violates a constraint, adjust the route rather than waiving the test.
+
+5. Geometry and procedural constraints
+
+Use cubic curves with controlled handles and stable tangent behavior. Use parallel-transport frames or an equally robust method to build the ribbon cross-sections without twisting.
+
+Requirements:
+
+* Adaptive sampling, denser around curvature changes, ramp crests, junctions and landing edges.
+* Smooth elevation and normal transitions. No uncontrolled spline overshoot or zero-length segments.
+* Shared junction geometry at the split and merge; no overlapping coplanar strips, visible cracks or mismatched heights.
+* Merged geometry by material where appropriate. Do not create a separate mesh for every sample or tiny segment.
+* Instanced repeated supports and markers where practical.
+* Stable segment/node IDs and explicit graph connectivity. Every intended route must reach the finish.
+* Seeded variation must preserve the course topology and constraints. A failed generation attempt must retry a bounded number of times or fall back to the validated default; it must never silently emit an invalid course.
+
+Sample the actual generated spline, not just control points, and validate the entire route width, rails, landing footprint, supports, height profile and boundary clearance.
+
+Suggested starting constraints, subject to verification against the existing controller:
+
+* Default walkable route width around 3 metres, wider at junctions and landing platforms.
+* Maximum sustained route grade around 16 degrees unless the controller is deliberately and safely extended.
+* Bank angle initially around 10–12 degrees.
+* Minimum sprint-turn radius around 7 metres except at designed junction transitions.
+* At least 0.5 metres of obstacle safety margin after accounting for route half-width and character radius.
+* No unintended water intersections, boundary violations or route self-intersections. The only allowed multi-level overlaps must be explicitly designed and tested.
+
+6. Surface resolution and character physics
+
+Do not simply make the course mesh take priority over terrain.
+
+Implement a state-aware candidate-surface resolver. It must consider:
+
+* Base terrain, existing bridge, stepping stones, water and course surfaces.
+* Character Y position, grounded state and vertical velocity.
+* Previous support surface/segment ID.
+* Whether the character is descending and has actually crossed a candidate surface from above.
+* Height and normal continuity at ramps, landings and junctions.
+
+Keep the existing base terrain query usable for callers that only need a height estimate. Inject the state-aware resolver into the controller rather than creating a circular import or global registry.
+
+Required behavior:
+
+* A character standing on the upper course stays on the upper surface.
+* A character underneath it stays on the lower surface and is never teleported upward.
+* A jump below a deck does not trigger a landing on the deck.
+* A character falling onto a platform from above lands only when its trajectory crosses that platform while descending.
+* Missing a jump can lead to the lower route or terrain and recovery, rather than an invisible death/reset.
+* Existing bridge and stepping-stone traversal remains correct.
+* Existing water hazards remain correct when the character is actually supported by the water/stream bed.
+* At a shared merge, both routes meet at the same world height and the surface resolver does not flicker between IDs.
+
+Use the same sampled geometry to build the rendered top surface and gameplay surface query. Compare query heights/normals against the actual generated mesh. Do not store references to mutable scratch normals; copy values when they must persist.
+
+Jump verification
+
+Extract a pure physics helper only if it helps the runtime and tests share the same actual rules. Do not write a second approximate jump formula and use that as proof.
+
+Simulate the actual controller’s jump and horizontal movement with the course’s takeoff state, input, gravity, air control, landing height and platform footprint at 30, 60 and 120 FPS, plus the controller’s maximum delta-time case. Include both full run-up and a slower approach.
+
+The candidate landing pad should allow the actual trajectory to intersect the platform with meaningful margin from the near edge. If the jump is not reachable, first adjust the gap, ramp, landing platform or run-up. Change the existing jump parameters only if the measured tests demonstrate that a change is necessary; preserve the existing movement feel.
+
+Surface alignment
+
+Replace the current Z-normal-only pitch approximation with a calculation based on the surface normal relative to the character’s forward direction. Combine the surface’s cross-slope bank with the existing dynamic turn-bank effect without double-counting it.
+
+Test ordinary terrain and ramps aligned with X, aligned with Z, diagonal ramps, the banked turn, takeoff, landing and underpass. Keep the current meadow movement visually unchanged within a reasonable tolerance.
+
+7. Route-aware camera
+
+Extend src/scene/thirdPersonCamera.ts.
+
+The camera should use course metadata, not only the character’s current velocity, to anticipate:
+
+* The fork and both route choices before the player commits.
+* The rising ramp and takeoff.
+* The actual landing platform during flight.
+* The banked curve and its exit.
+* The merge/lookout and common downhill return.
+
+Do not just increase the global look-ahead distance. Use route progress, upcoming feature type and speed to select a stable target.
+
+Add course-aware obstruction checks so the camera does not clip through the upper deck, ramp, supports or other course geometry. Reuse scratch objects and avoid unnecessary per-frame allocation. If the camera is beneath the elevated route, preserve character visibility and sensible framing.
+
+Manual orbit must retain priority. Preserve smoothing, mobile behavior and the existing camera’s general feel. Test the camera at low speed, sprint speed, jump, landing, branch selection, banked turn, underpass and merge.
+
+8. White dust
+
+The current dust texture already uses white radial gradients, but particle materials are tinted with surface colors. Make the emitted dust genuinely neutral white:
+
+* White core with soft, irregular translucent edges.
+* No grass-green or dirt-beige material tint.
+* Check toneMapped behavior against the current ACES renderer; use toneMapped = false for the particle materials if required to preserve white.
+* Tune texture alpha, material opacity, scale, lifetime and expansion together, using actual screenshots rather than guessing.
+* Preserve the fixed 48-particle pool and current exclusions: no dust on water or wooden bridge surfaces, and preserve the existing sprint-emission rules.
+* Dispose cloned particle materials, shared base materials and owned atlas textures exactly once.
+* Measure the draw-call cost. If active particles materially harm the performance budget, batch the effect without losing its soft white appearance.
+
+Verify dust on both dark grass and pale ground; white dust that disappears against the environment does not pass visual QA.
+
+9. Lifecycle and resource ownership
+
+Create explicit, idempotent disposal for every resource owned by the scene and course.
+
+Include:
+
+* Course geometry, underside geometry, rails, supports, markers, materials and textures.
+* Bridge-owned geometries as well as materials.
+* Environment landmark descendants and shared materials, with deduplicated resource sets.
+* Procedural character geometries, materials and textures.
+* Active GLTF geometries, materials, textures and other owned resources, including material arrays.
+* Dust sprite clones, base materials and atlas textures.
+* PMREM render target and the RoomEnvironment object.
+* Animation mixers/actions and any owned resources.
+* Event listeners, animation frames and scene objects.
+
+Keep ownership boundaries clear so shared resources are not disposed once per mesh. When cleaning up landmarkGroup, remove/dispose the bridge through its owner and then dispose the remaining owned descendants without double-disposing the bridge’s materials.
+
+Add a destroyed-scene guard to asynchronous model loading. If a GLTF completes after disposal, dispose its owned resources and return without creating a controller, adding meshes or registering listeners. Invalid model dimensions and exceptions during preparation must also clean up partial resources.
+
+Repeated scene disposal must be safe. Preserve the existing working cleanup paths in grass, flowers, clouds and other systems while fixing verified omissions.
+
+10. Performance budget
+
+Record baseline metrics before changing the scene, then compare after the course is implemented on the same available runtime/device.
+
+Measure, where supported:
+
+* Frame-time distribution, including P50/P95 and spikes during course traversal.
+* renderer.info.render.calls, triangles, geometry count and texture count.
+* Memory/resource counts across repeated scene creation and disposal.
+* Cost of the active dust effect.
+* Performance while viewing the entire course and while passing beneath the elevated section.
+
+Targets:
+
+* Aim for 60 FPS on a representative desktop/browser and at least 30 FPS on supported mobile hardware, where the runtime allows a real measurement.
+* Avoid more than a 10% frame-time regression against the measured baseline on the same device.
+* Aim for no more than 12 additional steady-state draw calls for the course itself, using merged geometry and instancing where practical.
+* Do not claim a device target passed if you could not test on that device. Record the hardware/runtime and method used.
+
+If a target fails, profile and fix the cause. Do not conceal regressions by lowering quality settings without measuring the trade-off.
+
+11. Tests, CI and documentation
+
+First run the current checks and record the baseline. Distinguish existing failures from regressions introduced by the implementation.
+
+If no test runner exists, add a lightweight, Vite-compatible test runner such as Vitest, a real npm test script and a reproducible package lockfile. Convert the existing bridge/terrain verification script into tests and retain its important checks. Add a CI workflow only if the current repository does not already have one.
+
+Add automated tests for:
+
+1. Same seed produces the same course data; different seeds produce controlled variation.
+2. All branches connect to the merge and finish.
+3. Curve continuity, valid tangents, finite values and bounded curvature.
+4. Sampled full-width obstacle clearance, stream clearance and movement-boundary clearance.
+5. Elevation and normal continuity, including ramp and junction height agreement.
+6. Surface-query agreement with the actual generated course mesh.
+7. Correct selection of upper versus lower surfaces at identical X/Z positions.
+8. Descending-crossing landing behavior, under-deck behavior and gap recovery.
+9. Jump reachability with actual controller rules across the required frame rates.
+10. Existing bridge, stepping-stone, water and terrain behavior.
+11. Course disposal idempotency and resource ownership.
+12. Scene setup/cleanup under React StrictMode, including a delayed GLTF completion after teardown.
+13. Camera target stability at branch, jump, banked turn and merge.
+14. Dust material color, exclusions and disposal.
+
+Run the course generator over at least 100 deterministic seeds in automated geometry tests. Reject or adjust any seed that produces an invalid route; do not simply log a warning and keep the invalid geometry.
+
+Add a single verification command such as npm run verify that runs lint, tests and build. If no CI exists, configure it to run the same command on Node 20.
+
+Update README.md to match the actual controls and current speeds/zoom behavior, describe the course and its procedural seed/testing approach, and document the commands. Remove stale claims rather than inventing replacement feature counts.
+
+12. Visual and gameplay QA
+
+A successful TypeScript build is not evidence that the course plays well.
+
+Use the available browser/game preview to play through the complete route. Inspect and correct:
+
+* Start gate visibility and readable approach.
+* Clear distinction between the upper shortcut and safe route.
+* Ramp silhouette and takeoff readability.
+* Actual jump trajectory and landing footprint.
+* Banked-turn geometry and character alignment.
+* Safe lower route and recovery after a missed jump.
+* Merge height and mesh seams.
+* Underpass headroom, surface selection and camera visibility.
+* Scenic reveal and finish readability.
+* White dust against light and dark surfaces.
+* Mobile/touch behavior and existing landmark visibility.
+
+Capture screenshots where the environment supports it: start, route split, ramp, jump/landing, lower route, merge/reveal and finish. Check the browser console for errors. If browser automation, screenshots or device performance measurement are unavailable, state exactly what could not be verified; do not fabricate evidence.
+
+13. Implementation loop and final report
+
+Follow this loop without asking me to approve every step:
+
+1. Inspect the live repository, branch, package setup and existing architecture.
+2. Run baseline lint/build and available tests; record actual results.
+3. Implement the complete course and all necessary integrations.
+4. Run the new tests, existing tests, lint and build.
+5. Fix failures and repeat until all available checks pass.
+6. Play through the course, inspect the visuals and performance, and fix defects.
+7. Verify cleanup and asynchronous loading behavior.
+8. Update documentation and the final verification command.
+9. Review the diff for unrelated changes, temporary debugging code, dead code and unsupported claims.
+
+Finish with an evidence-based report containing:
+
+* Architecture and gameplay implemented.
+* Changed files and why they changed.
+* Actual commands run and their results.
+* Route, physics, surface-query and lifecycle test results.
+* Performance baseline versus after measurements, including hardware/runtime.
+* Screenshots or other actual evidence produced.
+* Any remaining defects or checks that could not be run.
+
+Do not report “all tests passed” unless every claimed test was executed. Do not claim the game beats a leading studio without a defined comparative benchmark and evidence. The deliverable is a complete, maintainable, playable course with measurable results—not an impressive-sounding description of unfinished work.
+
+Engineering references
+
+Use these as technical references, not as substitutes for testing the actual repository:
+
+* Three.js resource disposal: https://threejs.org/manual/pages/how-to-dispose-of-objects.html
+* Three.js renderer statistics: https://threejs.org/docs/pages/WebGLRenderer.html
+* Three.js raycasting: https://threejs.org/docs/pages/Raycaster.html
+* React StrictMode lifecycle checks: https://react.dev/reference/react/StrictMode
+* Fixed-timestep and simulation consistency background: https://gafferongames.com/post/fix_your_timestep/
+* Sonic Lost World design context: https://www.sega.co.jp/en/recruit/episode/episode15/
+* Procedural level-generation research: https://ojs.aaai.org/index.php/AIIDE/article/view/12379
+
+Implement the feature in the repository now. Do not return only a plan.

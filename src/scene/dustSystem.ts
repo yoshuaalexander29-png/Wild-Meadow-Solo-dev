@@ -176,29 +176,24 @@ function createDustTextureAtlas(): THREE.CanvasTexture[] {
 export function createDustSystem(scene: THREE.Scene): DustSystem {
   const group = new THREE.Group();
   scene.add(group);
+  let isDisposed = false;
 
   const atlasTextures = createDustTextureAtlas();
 
-  // Color Families for Ground Interaction (BotW/Ghibli style)
-  const DIRT_COLORS = [
-    new THREE.Color('#dfcaa8'), // Warm sandy beige
-    new THREE.Color('#d4bf9c'), // Warm loam buff
-  ];
-  const GRASS_COLORS = [
-    new THREE.Color('#c5d09e'), // Soft muted olive-sage
-    new THREE.Color('#b8c690'), // Meadow clover buff
-  ];
-  const STONE_COLOR = new THREE.Color('#d0cdc2'); // Pale chiseled stone dust
-  const LANDING_COLOR = new THREE.Color('#eedebd'); // Buoyant dry dust
+  // Pure Neutral White Color for Stylized Anime / Ghibli / BotW Dust Puffs
+  const WHITE_DUST_COLOR = new THREE.Color('#ffffff');
 
   // 4 Shared Materials corresponding to the 4 atlas variants
+  // toneMapped = false guarantees crisp, radiant white without ACES curve tinting
   const spriteMaterials = atlasTextures.map((tex) =>
     new THREE.SpriteMaterial({
       map: tex,
+      color: WHITE_DUST_COLOR,
       transparent: true,
       opacity: 0,
       depthWrite: false,
       depthTest: true,
+      toneMapped: false,
     })
   );
 
@@ -270,14 +265,8 @@ export function createDustSystem(scene: THREE.Scene): DustSystem {
     }
   }
 
-  function getSurfaceColor(surface: SurfaceType): THREE.Color {
-    if (surface === 'dirt') {
-      return DIRT_COLORS[Math.floor(Math.random() * DIRT_COLORS.length)];
-    }
-    if (surface === 'stone') {
-      return STONE_COLOR;
-    }
-    return GRASS_COLORS[Math.floor(Math.random() * GRASS_COLORS.length)];
+  function getSurfaceColor(_surface: SurfaceType): THREE.Color {
+    return WHITE_DUST_COLOR;
   }
 
   return {
@@ -440,7 +429,7 @@ export function createDustSystem(scene: THREE.Scene): DustSystem {
       if (surface === 'water' || surface === 'wood') return;
 
       const count = Math.min(8, Math.max(4, Math.floor(impactSpeed * 1.4)));
-      const color = surface === 'dirt' ? DIRT_COLORS[0] : LANDING_COLOR;
+      const color = WHITE_DUST_COLOR;
 
       for (let i = 0; i < count; i++) {
         const angle = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.35;
@@ -482,10 +471,13 @@ export function createDustSystem(scene: THREE.Scene): DustSystem {
     },
 
     dispose: () => {
+      if (isDisposed) return;
+      isDisposed = true;
       scene.remove(group);
       particles.forEach((p) => {
         p.sprite.material.dispose();
       });
+      spriteMaterials.forEach((m) => m.dispose());
       atlasTextures.forEach((t) => t.dispose());
     },
   };

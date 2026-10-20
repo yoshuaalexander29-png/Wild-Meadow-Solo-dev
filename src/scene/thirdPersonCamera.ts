@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { getTerrainHeight } from './terrain';
+import { getTerrainHeight, type WalkableSurface } from './terrain';
+import type { CameraCourseContext } from './platformerCourse';
 
 export interface ThirdPersonCamera {
   camera: THREE.PerspectiveCamera;
@@ -19,7 +20,9 @@ export interface ThirdPersonCamera {
     characterHeading?: number,
     characterVelocity?: THREE.Vector3,
     characterGrounded?: boolean,
-    characterVerticalSpeed?: number
+    characterVerticalSpeed?: number,
+    courseContext?: CameraCourseContext,
+    surfaceResolver?: (x: number, z: number, y?: number) => WalkableSurface | null
   ) => void;
 }
 
@@ -123,10 +126,22 @@ export function createThirdPersonCamera(
       characterHeading?: number,
       characterVelocity?: THREE.Vector3,
       characterGrounded = true,
-      characterVerticalSpeed = 0
+      characterVerticalSpeed = 0,
+      courseContext?: CameraCourseContext,
+      surfaceResolver?: (x: number, z: number, y?: number) => WalkableSurface | null
     ) => {
       const dt = THREE.MathUtils.clamp(delta, 0.001, 0.05);
       manualOrbitCooldown = Math.max(0, manualOrbitCooldown - dt);
+
+      // Course-aware camera context: smoothly adjust pitch and distance when player has not recently touched orbit
+      if (courseContext?.onCourse && manualOrbitCooldown <= 0) {
+        if (courseContext.suggestedPitch !== undefined) {
+          targetPitch = THREE.MathUtils.damp(targetPitch, courseContext.suggestedPitch, 2.5, dt);
+        }
+        if (courseContext.targetDistance !== undefined) {
+          targetDistance = THREE.MathUtils.damp(targetDistance, courseContext.targetDistance, 2.0, dt);
+        }
+      }
 
       const horizontalVelocity = characterVelocity
         ? Math.hypot(characterVelocity.x, characterVelocity.z)
@@ -167,6 +182,13 @@ export function createThirdPersonCamera(
           : 0),
         characterPos.z + _travelDirection.z * lookAheadDistance
       );
+
+      // If active course context anticipates a landmark (jump landing pad, scenic lookout, fork split)
+      if (courseContext?.onCourse && courseContext.targetLookAhead) {
+        const blendWeight = courseContext.isAirborneTarget || courseContext.isScenicReveal ? 0.65 : 0.35;
+        _desiredTarget.lerp(courseContext.targetLookAhead, blendWeight);
+      }
+
       if (!hasInitializedLookTarget) {
         _camTarget.copy(_desiredTarget);
         hasInitializedLookTarget = true;
@@ -180,7 +202,7 @@ export function createThirdPersonCamera(
       const sinYaw = Math.sin(currentYaw);
       const cosYaw = Math.cos(currentYaw);
 
-      // Terrain line-of-sight safety: softly shorten distance if terrain rises behind camera
+      // Line-of-sight safety: softly shorten distance if terrain OR elevated course geometry obstructs camera
       let safeDist = currentDistance;
       const testSteps = 6;
       for (let s = 1; s <= testSteps; s++) {
@@ -194,6 +216,18 @@ export function createThirdPersonCamera(
           safeDist = Math.max(1.1, (currentDistance * (s - 1)) / testSteps);
           break;
         }
+
+        // Elevated course deck obstruction test
+        if (surfaceResolver) {
+          const surf = surfaceResolver(testX, testZ, testY);
+          if (surf && surf.height > groundH + 0.4) {
+            // If character is on or above the deck, keep camera above deck
+            if (characterPos.y >= surf.height - 0.2 && testY < surf.height + 0.45) {
+              safeDist = Math.max(1.1, (currentDistance * (s - 1)) / testSteps);
+              break;
+            }
+          }
+        }
       }
 
       _idealPos.set(
@@ -202,10 +236,22 @@ export function createThirdPersonCamera(
         targetLook.z + cosYaw * cosPitch * safeDist
       );
 
-      // Keep camera safely above ground
+      // Keep camera safely above ground or beneath elevated underpass deck
       const groundAtCam = getTerrainHeight(_idealPos.x, _idealPos.z);
       if (_idealPos.y < groundAtCam + 0.55) {
         _idealPos.y = groundAtCam + 0.55;
+      }
+
+      if (surfaceResolver) {
+        const camSurf = surfaceResolver(_idealPos.x, _idealPos.z, _idealPos.y);
+        if (camSurf && camSurf.height > groundAtCam + 0.4) {
+          // If character is under the deck, keep camera under the deck ceiling so it doesn't clip
+          if (characterPos.y < camSurf.height - 0.6 && _idealPos.y > camSurf.height - 0.35) {
+            _idealPos.y = camSurf.height - 0.35;
+          } else if (characterPos.y >= camSurf.height - 0.2 && _idealPos.y < camSurf.height + 0.55) {
+            _idealPos.y = camSurf.height + 0.55;
+          }
+        }
       }
 
       // Restrained landing shake

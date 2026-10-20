@@ -4,6 +4,7 @@ import {
   resolveCollision,
   SAFE_RESPAWN,
   type SurfaceType,
+  type WalkableSurface,
 } from './terrain';
 import { createDustSystem, type DustSystem } from './dustSystem';
 import { meadowAudio } from '../audio/proceduralAudio';
@@ -12,6 +13,20 @@ import type { MovementInput } from '../types';
 export interface CharacterControllerCallbacks {
   onDeathState?: (isDead: boolean, reason?: string) => void;
   onImpact?: (trauma: number) => void;
+}
+
+export type SurfaceResolverFn = (
+  x: number,
+  z: number,
+  characterY?: number,
+  verticalSpeed?: number,
+  isGrounded?: boolean,
+  previousSurfaceId?: string
+) => WalkableSurface;
+
+export interface CharacterControllerOptions {
+  callbacks?: CharacterControllerCallbacks;
+  surfaceResolver?: SurfaceResolverFn;
 }
 
 export interface CharacterController {
@@ -25,11 +40,14 @@ export interface CharacterController {
   isGrounded: boolean;
   isDead: boolean;
   surfaceType: SurfaceType;
+  surfaceId: string;
   update: (delta: number, input: MovementInput, cameraYaw: number, time: number) => void;
   triggerJump: () => void;
   triggerRoll: () => void;
   triggerEmote: () => void;
   respawn: () => void;
+  setVisualModel?: (newModel: THREE.Group, animations?: THREE.AnimationClip[]) => void;
+  setSurfaceResolver: (resolver: SurfaceResolverFn) => void;
   dispose: () => void;
 }
 
@@ -55,47 +73,74 @@ export function createCharacterController(
   root: THREE.Group,
   animations: THREE.AnimationClip[],
   scene?: THREE.Scene,
-  callbacksOrOnDeath?: ((isDead: boolean, reason?: string) => void) | CharacterControllerCallbacks
+  callbacksOrOptions?:
+    | ((isDead: boolean, reason?: string) => void)
+    | CharacterControllerCallbacks
+    | CharacterControllerOptions
 ): CharacterController {
-  const callbacks: CharacterControllerCallbacks =
-    typeof callbacksOrOnDeath === 'function'
-      ? { onDeathState: callbacksOrOnDeath }
-      : callbacksOrOnDeath || {};
+  let callbacks: CharacterControllerCallbacks = {};
+  let surfaceResolver: SurfaceResolverFn = getWalkableSurface;
 
-  const mixer = new THREE.AnimationMixer(root);
+  if (typeof callbacksOrOptions === 'function') {
+    callbacks = { onDeathState: callbacksOrOptions };
+  } else if (callbacksOrOptions) {
+    if ('surfaceResolver' in callbacksOrOptions || 'callbacks' in callbacksOrOptions) {
+      const opts = callbacksOrOptions as CharacterControllerOptions;
+      if (opts.callbacks) callbacks = opts.callbacks;
+      if (opts.surfaceResolver) surfaceResolver = opts.surfaceResolver;
+    } else {
+      callbacks = callbacksOrOptions as CharacterControllerCallbacks;
+    }
+  }
+
+  let mixer = new THREE.AnimationMixer(root);
   const baseScale = root.scale.clone();
 
-  // Animation clips from Quaternius Knight_Male.glb
-  const idleClip = animations.find((c) => /^idle$/i.test(c.name)) || animations.find((c) => /idle/i.test(c.name)) || animations[0];
-  const walkClip = animations.find((c) => /^walk$/i.test(c.name)) || animations.find((c) => /walk/i.test(c.name)) || idleClip;
-  const runClip = animations.find((c) => /^run$/i.test(c.name)) || animations.find((c) => /run|sprint/i.test(c.name)) || walkClip;
-  const jumpClip = animations.find((c) => /^jump$/i.test(c.name)) || animations.find((c) => /jump/i.test(c.name));
-  const rollClip = animations.find((c) => /^roll$/i.test(c.name)) || animations.find((c) => /roll|dodge/i.test(c.name));
-  const victoryClip = animations.find((c) => /victory|cheer/i.test(c.name));
-  const deathClip = animations.find((c) => /^death$/i.test(c.name)) || animations.find((c) => /defeat|death/i.test(c.name));
-  const standUpClip = animations.find((c) => /^standup$/i.test(c.name)) || animations.find((c) => /stand|wakeup/i.test(c.name));
+  let idleAction: THREE.AnimationAction | null = null;
+  let walkAction: THREE.AnimationAction | null = null;
+  let runAction: THREE.AnimationAction | null = null;
+  let jumpAction: THREE.AnimationAction | null = null;
+  let rollAction: THREE.AnimationAction | null = null;
+  let victoryAction: THREE.AnimationAction | null = null;
+  let deathAction: THREE.AnimationAction | null = null;
+  let standUpAction: THREE.AnimationAction | null = null;
+  let currentAction: THREE.AnimationAction | null = null;
 
-  const idleAction = idleClip ? mixer.clipAction(idleClip) : null;
-  const walkAction = walkClip ? mixer.clipAction(walkClip) : null;
-  const runAction = runClip ? mixer.clipAction(runClip) : null;
-  const jumpAction = jumpClip ? mixer.clipAction(jumpClip) : null;
-  const rollAction = rollClip ? mixer.clipAction(rollClip) : null;
-  const victoryAction = victoryClip ? mixer.clipAction(victoryClip) : null;
-  const deathAction = deathClip ? mixer.clipAction(deathClip) : null;
-  const standUpAction = standUpClip ? mixer.clipAction(standUpClip) : null;
+  function setupActions(animClips: THREE.AnimationClip[]) {
+    mixer.stopAllAction();
 
-  // Configure non-looping one-shot actions
-  [jumpAction, rollAction, victoryAction, deathAction, standUpAction].forEach((action) => {
-    if (action) {
-      action.setLoop(THREE.LoopOnce, 1);
-      action.clampWhenFinished = true;
+    const idleClip = animClips.find((c) => /^idle$/i.test(c.name)) || animClips.find((c) => /idle/i.test(c.name)) || animClips[0];
+    const walkClip = animClips.find((c) => /^walk$/i.test(c.name)) || animClips.find((c) => /walk/i.test(c.name)) || idleClip;
+    const runClip = animClips.find((c) => /^run$/i.test(c.name)) || animClips.find((c) => /run|sprint/i.test(c.name)) || walkClip;
+    const jumpClip = animClips.find((c) => /^jump$/i.test(c.name)) || animClips.find((c) => /jump/i.test(c.name));
+    const rollClip = animClips.find((c) => /^roll$/i.test(c.name)) || animClips.find((c) => /roll|dodge/i.test(c.name));
+    const victoryClip = animClips.find((c) => /victory|cheer/i.test(c.name));
+    const deathClip = animClips.find((c) => /^death$/i.test(c.name)) || animClips.find((c) => /defeat|death/i.test(c.name));
+    const standUpClip = animClips.find((c) => /^standup$/i.test(c.name)) || animClips.find((c) => /stand|wakeup/i.test(c.name));
+
+    idleAction = idleClip ? mixer.clipAction(idleClip) : null;
+    walkAction = walkClip ? mixer.clipAction(walkClip) : null;
+    runAction = runClip ? mixer.clipAction(runClip) : null;
+    jumpAction = jumpClip ? mixer.clipAction(jumpClip) : null;
+    rollAction = rollClip ? mixer.clipAction(rollClip) : null;
+    victoryAction = victoryClip ? mixer.clipAction(victoryClip) : null;
+    deathAction = deathClip ? mixer.clipAction(deathClip) : null;
+    standUpAction = standUpClip ? mixer.clipAction(standUpClip) : null;
+
+    [jumpAction, rollAction, victoryAction, deathAction, standUpAction].forEach((action) => {
+      if (action) {
+        action.setLoop(THREE.LoopOnce, 1);
+        action.clampWhenFinished = true;
+      }
+    });
+
+    currentAction = idleAction;
+    if (currentAction) {
+      currentAction.play();
     }
-  });
-
-  let currentAction = idleAction;
-  if (currentAction) {
-    currentAction.play();
   }
+
+  setupActions(animations);
 
   function fadeToAction(nextAction: THREE.AnimationAction | null, duration = 0.16) {
     if (!nextAction || currentAction === nextAction) return;
@@ -130,6 +175,7 @@ export function createCharacterController(
   let previousJumpInput = false;
 
   let currentSurfaceType: SurfaceType = 'grass';
+  let currentSurfaceId = 'terrain';
   let footstepTimer = 0;
   let sprintFootToggle = 0;
 
@@ -289,7 +335,9 @@ export function createCharacterController(
   function executeRespawn() {
     const spawnX = SAFE_RESPAWN.x;
     const spawnZ = SAFE_RESPAWN.z;
-    const surface = getWalkableSurface(spawnX, spawnZ);
+    const surface = surfaceResolver(spawnX, spawnZ, undefined, 0, true, 'terrain');
+    currentSurfaceType = surface.surfaceType;
+    currentSurfaceId = surface.isBridge ? 'bridge' : surface.surfaceType;
 
     root.position.set(spawnX, surface.height, spawnZ);
     currentRotationY = SAFE_RESPAWN.rotY;
@@ -338,16 +386,34 @@ export function createCharacterController(
     get surfaceType() {
       return currentSurfaceType;
     },
+    get surfaceId() {
+      return currentSurfaceId;
+    },
     triggerJump: doJump,
     triggerRoll: doRoll,
     triggerEmote: doEmote,
     respawn: executeRespawn,
+    setSurfaceResolver: (resolver: SurfaceResolverFn) => {
+      surfaceResolver = resolver;
+    },
+    setVisualModel: (newModel: THREE.Group, newAnimations: THREE.AnimationClip[] = []) => {
+      if (root.userData.heroRig?.dispose) {
+        root.userData.heroRig.dispose();
+        root.userData.heroRig = undefined;
+      }
+      while (root.children.length > 0) {
+        root.remove(root.children[0]);
+      }
+      root.add(newModel);
+      mixer = new THREE.AnimationMixer(root);
+      setupActions(newAnimations);
+    },
     update: (delta: number, input: MovementInput, cameraYaw: number, time: number) => {
       const dt = THREE.MathUtils.clamp(delta, 0.001, 0.05);
       // Treat held jump as one press. Repeatedly calling doJump while held can
       // continually refresh the jump buffer and cause an unintended auto-bunny-hop.
-      const jumpPressed = input.jump && !previousJumpInput;
-      previousJumpInput = input.jump;
+      const jumpPressed = !!input.jump && !previousJumpInput;
+      previousJumpInput = !!input.jump;
 
       mixer.update(dt);
 
@@ -455,38 +521,58 @@ export function createCharacterController(
       while (diff < -Math.PI) diff += Math.PI * 2;
       while (diff > Math.PI) diff -= Math.PI * 2;
 
-      const targetBank = THREE.MathUtils.clamp(-diff * (currentSpeed / 4.0) * 0.38, -0.24, 0.24);
-      currentBank = THREE.MathUtils.damp(currentBank, targetBank, 12.0, dt);
+      const targetTurnBank = THREE.MathUtils.clamp(-diff * (currentSpeed / 4.0) * 0.38, -0.24, 0.24);
       currentRotationY += diff * Math.min(1.0, dt * 18.0);
 
-      // Terrain slope pitch adaptation
-      const surface = getWalkableSurface(root.position.x, root.position.z);
-      currentSurfaceType = surface.surfaceType;
-
-      const targetPitch = THREE.MathUtils.clamp(-surface.normal.z * 0.38, -0.28, 0.28);
-      currentPitch = THREE.MathUtils.damp(currentPitch, targetPitch, 8.0, dt);
-
-      root.rotation.set(currentPitch, currentRotationY, currentBank, 'YXZ');
-
-      // Update position with continuous obstacle sliding collisions
+      // Update position with continuous obstacle sliding collisions (height-aware for multi-level courses)
       const nextX = root.position.x + _currentVel.x * dt;
       const nextZ = root.position.z + _currentVel.z * dt;
 
-      const collision = resolveCollision(nextX, nextZ, 0.42, _currentVel.x, _currentVel.z);
+      const collision = resolveCollision(nextX, nextZ, 0.42, _currentVel.x, _currentVel.z, root.position.y);
       root.position.x = collision.x;
       root.position.z = collision.z;
       _currentVel.x = collision.slideVelX;
       _currentVel.z = collision.slideVelZ;
 
       // -----------------------------------------------------------------
-      // Vertical Physics & Ground Elevation
+      // Vertical Physics & State-Aware Surface Elevation
       // -----------------------------------------------------------------
-      const groundSurface = getWalkableSurface(root.position.x, root.position.z);
-      currentSurfaceType = groundSurface.surfaceType;
-      const groundY = groundSurface.height;
+      // Single, authoritative query per frame to the state-aware surface resolver
+      const surface = surfaceResolver(
+        root.position.x,
+        root.position.z,
+        root.position.y,
+        verticalVelocity,
+        isGrounded,
+        currentSurfaceId
+      );
+      currentSurfaceType = surface.surfaceType;
+      currentSurfaceId = surface.isBridge ? 'bridge' : surface.surfaceType;
+      const groundY = surface.height;
+
+      // Surface slope and banking adaptation based on surface normal projected onto character heading
+      const forwardX = Math.sin(currentRotationY);
+      const forwardZ = Math.cos(currentRotationY);
+      const rightX = Math.cos(currentRotationY);
+      const rightZ = -Math.sin(currentRotationY);
+
+      // Slope along forward travel direction (positive = uphill, negative = downhill)
+      const forwardSlope = surface.normal.x * forwardX + surface.normal.z * forwardZ;
+      // Cross-slope bank perpendicular to forward travel
+      const crossSlope = surface.normal.x * rightX + surface.normal.z * rightZ;
+
+      const targetPitch = THREE.MathUtils.clamp(-forwardSlope * 0.75, -0.55, 0.55);
+      currentPitch = THREE.MathUtils.damp(currentPitch, targetPitch, 8.0, dt);
+
+      // Bank angle: combine surface cross-slope bank with dynamic turn bank without double counting
+      const surfaceBank = THREE.MathUtils.clamp(-crossSlope * 0.75, -0.45, 0.45);
+      const targetBank = THREE.MathUtils.clamp(targetTurnBank + surfaceBank, -0.45, 0.45);
+      currentBank = THREE.MathUtils.damp(currentBank, targetBank, 12.0, dt);
+
+      root.rotation.set(currentPitch, currentRotationY, currentBank, 'YXZ');
 
       // Deep water hazard: only in intentional deep pools (> 0.85m depth)
-      if (isGrounded && groundSurface.isDeepWater) {
+      if (isGrounded && surface.isDeepWater) {
         triggerDeath('The current was too swift for the armored knight.');
         return;
       }
@@ -497,7 +583,7 @@ export function createCharacterController(
         verticalVelocity -= baseGravity * apexFactor * dt;
         root.position.y += verticalVelocity * dt;
 
-        if (root.position.y <= groundY) {
+        if (root.position.y <= groundY && verticalVelocity <= 0) {
           // Landing touchdown
           const impactSpeed = Math.abs(verticalVelocity);
           root.position.y = groundY;

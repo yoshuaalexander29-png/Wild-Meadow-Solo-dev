@@ -470,9 +470,21 @@ export function createHeroKnight(): HeroKnightRig {
     }
   }
 
+  let isDisposed = false;
   function dispose() {
+    if (isDisposed) return;
+    isDisposed = true;
+
+    group.traverse((obj) => {
+      if ((obj as THREE.Mesh).isMesh) {
+        const mesh = obj as THREE.Mesh;
+        mesh.geometry?.dispose();
+      }
+    });
+
     shadowTex.dispose();
     shadowMat.dispose();
+    visorSlitMat.dispose();
     armorMat.dispose();
     armorDarkMat.dispose();
     goldMat.dispose();

@@ -119,6 +119,7 @@ export function buildSpiritedAwayBridge(layout = SPIRITED_AWAY_BRIDGE_LAYOUT): B
   group.rotation.y = layout.rotY;
 
   const corners = calculateBridgeCorners(layout);
+  let isDisposed = false;
 
   const baseGroundY = getBaseTerrainHeight(layout.centerX, layout.centerZ);
   const deckBaseY = baseGroundY + 0.38;
@@ -408,6 +409,13 @@ export function buildSpiritedAwayBridge(layout = SPIRITED_AWAY_BRIDGE_LAYOUT): B
       return evalResult.onBridge ? evalResult.deckHeight : null;
     },
     dispose: () => {
+      if (isDisposed) return;
+      isDisposed = true;
+      group.traverse((obj) => {
+        if ((obj as THREE.Mesh).isMesh) {
+          (obj as THREE.Mesh).geometry?.dispose();
+        }
+      });
       vermilionRailMat.dispose();
       vermilionAccentMat.dispose();
       goldFinialMat.dispose();

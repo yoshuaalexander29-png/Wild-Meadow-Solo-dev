@@ -431,7 +431,8 @@ export function resolveCollision(
   currentZ: number,
   characterRadius = 0.42,
   velX = 0,
-  velZ = 0
+  velZ = 0,
+  characterY?: number
 ): { x: number; z: number; collided: boolean; slideVelX: number; slideVelZ: number } {
   let resolvedX = currentX;
   let resolvedZ = currentZ;
@@ -441,14 +442,29 @@ export function resolveCollision(
 
   // Check obstacle colliders
   for (const obs of OBSTACLES) {
+    // If character is high above a ground-level obstacle (e.g. on elevated ramp or bridge deck > 2.4m above terrain), skip ground collision
+    if (characterY !== undefined) {
+      const obsGroundY = getTerrainHeight(obs.x, obs.z);
+      // Bridge rails and elevated obstacles remain active; ground rocks and low benches do not collide with high elevated platforms
+      const isLowGroundObstacle = obs.radius <= 1.4 && !obs.label?.includes('Bridge');
+      if (isLowGroundObstacle && characterY > obsGroundY + 2.2) {
+        continue;
+      }
+    }
+
     const dx = resolvedX - obs.x;
     const dz = resolvedZ - obs.z;
     const dist = Math.hypot(dx, dz);
     const minDist = obs.radius + characterRadius;
 
-    if (dist < minDist && dist > 0.0001) {
-      const nx = dx / dist;
-      const nz = dz / dist;
+    if (dist < minDist) {
+      // Safe handling for exact coincidence (dist near zero)
+      let nx = 1;
+      let nz = 0;
+      if (dist > 0.0001) {
+        nx = dx / dist;
+        nz = dz / dist;
+      }
 
       // Push out to collider surface
       resolvedX = obs.x + nx * minDist;

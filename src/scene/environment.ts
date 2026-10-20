@@ -667,6 +667,8 @@ export function createEnvironment(scene: THREE.Scene): EnvironmentWorld {
   logMoss.scale.set(1.4, 0.4, 1.2);
   landmarkGroup.add(logMoss);
 
+  let isDisposed = false;
+
   return {
     groundMesh,
     waterMesh,
@@ -745,14 +747,41 @@ export function createEnvironment(scene: THREE.Scene): EnvironmentWorld {
     },
     bridgeInstance,
     dispose: () => {
+      if (isDisposed) return;
+      isDisposed = true;
       scene.remove(groundMesh);
       scene.remove(waterMesh);
       scene.remove(landmarkGroup);
+
       groundGeo.dispose();
       groundMat.dispose();
       waterGeo.dispose();
       waterMat.dispose();
+
+      // Dispose bridge first through its owner and remove its group so its materials/geometries are not double-disposed
+      landmarkGroup.remove(bridgeInstance.group);
       bridgeInstance.dispose();
+
+      // Cleanly dispose remaining owned landmark geometries and materials once with Set deduplication
+      const ownedGeometries = new Set<THREE.BufferGeometry>();
+      const ownedMaterials = new Set<THREE.Material>();
+
+      landmarkGroup.traverse((obj) => {
+        if ((obj as THREE.Mesh).isMesh) {
+          const mesh = obj as THREE.Mesh;
+          if (mesh.geometry) ownedGeometries.add(mesh.geometry);
+          if (mesh.material) {
+            if (Array.isArray(mesh.material)) {
+              mesh.material.forEach((m) => ownedMaterials.add(m));
+            } else {
+              ownedMaterials.add(mesh.material);
+            }
+          }
+        }
+      });
+
+      ownedGeometries.forEach((g) => g.dispose());
+      ownedMaterials.forEach((m) => m.dispose());
     },
   };
 }
