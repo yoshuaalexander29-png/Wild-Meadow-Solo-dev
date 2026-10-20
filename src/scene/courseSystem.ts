@@ -166,9 +166,12 @@ export function createMeadowCourse(scene: THREE.Scene): MeadowCourse {
   const plankMatrix = new THREE.Matrix4();
   let plankIndex = 0;
   for (const { curve, definition } of routes) {
-    for (let t = 0.02; t < 0.99 && plankIndex < 512; t += 0.032) {
-      const progress = t;
-      if ((definition.gaps ?? []).some(([start, end]) => progress >= start && progress <= end)) continue;
+    const routeLength = curve.getLength();
+    // Plank spacing is specified in metres, not normalized curve parameter, so
+    // board size stays consistent on both the longer route and the shortcut.
+    for (let distance = 0.18; distance < routeLength - 0.18 && plankIndex < 512; distance += 0.29) {
+      const t = distance / routeLength;
+      if ((definition.gaps ?? []).some(([start, end]) => t >= start && t <= end)) continue;
       curve.getPointAt(t, plankPoint);
       const boardwalkOffset = getCourseBoardwalkOffset(plankPoint.y);
       if (boardwalkOffset < 0.005) continue;
