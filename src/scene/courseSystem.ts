@@ -69,9 +69,9 @@ function makeGuideLine(curve: THREE.CatmullRomCurve3, width: number, color: stri
 
 export function createMeadowCourse(scene: THREE.Scene): MeadowCourse {
   const owned: THREE.Object3D[] = [];
-  const routes: Array<{ curve: THREE.CatmullRomCurve3; definition: RouteDefinition }> = [];
+  const routes: Array<{ curve: THREE.CatmullRomCurve3; definition: MeadowRouteDefinition }> = [];
 
-  for (const definition of ROUTES) {
+  for (const definition of MEADOW_COURSE_ROUTES) {
     const points = definition.points.map(([x, z]) =>
       new THREE.Vector3(x, getTerrainHeight(x, z), z)
     );
