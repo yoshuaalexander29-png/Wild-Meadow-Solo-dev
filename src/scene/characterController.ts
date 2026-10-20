@@ -514,7 +514,7 @@ export function createCharacterController(
             meadowAudio.playWaterSplashSound(false);
           } else {
             dustSystem?.emitImpactPuff(root.position, currentSurfaceType, impactSpeed);
-            meadowAudio.playFootstep(currentSurfaceType, true);
+            meadowAudio.playFootstep(currentSurfaceType === 'course' ? 'dirt' : currentSurfaceType, true);
           }
         }
       } else {
@@ -596,7 +596,7 @@ export function createCharacterController(
             spawnWaterSplash(root.position.x, root.position.y, root.position.z, 3);
             meadowAudio.playWaterSplashSound(false);
           } else {
-            meadowAudio.playFootstep(currentSurfaceType, currentSpeed > 4.6);
+            meadowAudio.playFootstep(currentSurfaceType === 'course' ? 'dirt' : currentSurfaceType, currentSpeed > 4.6);
             const isSprint = currentSpeed > 4.6;
             sprintFootToggle = sprintFootToggle === 0 ? 1 : 0;
             const cosR = Math.cos(currentRotationY);
