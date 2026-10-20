@@ -1276,6 +1276,16 @@ export function createPlatformerCourse(scene: THREE.Scene, seed = 42): Platforme
       currentFeature = 'split';
     }
 
+    // As with the fork, the crest's nearest sample may still be labelled ramp.
+    // Promote the authored takeoff node locally so airborne framing starts on time.
+    const takeoffNode = data.nodes.find((node) => node.feature === 'takeoff');
+    if (
+      takeoffNode &&
+      Math.hypot(charPos.x - takeoffNode.position.x, charPos.z - takeoffNode.position.z) < 1.35
+    ) {
+      currentFeature = 'takeoff';
+    }
+
     // Dynamic anticipation based on upcoming course landmark
     const lookAheadDist = THREE.MathUtils.clamp(speed * 0.45, 1.8, 4.2);
 
