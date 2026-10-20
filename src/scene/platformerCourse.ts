@@ -835,13 +835,13 @@ export function createPlatformerCourse(scene: THREE.Scene, seed = 42): Platforme
   });
   ownedMaterials.add(stonePlinthMat);
 
-  const vermilionRailMat = new THREE.MeshStandardMaterial({
-    color: '#c23826', // Spirited Away style vermilion guard rails
+  const checkpointTimberMat = new THREE.MeshStandardMaterial({
+    color: '#76513a', // Weathered checkpoint timber; route markers should not dominate the landscape
     roughness: 0.64,
     metalness: 0.06,
     flatShading: true,
   });
-  ownedMaterials.add(vermilionRailMat);
+  ownedMaterials.add(checkpointTimberMat);
 
   const goldAccentMat = new THREE.MeshStandardMaterial({
     color: '#e8af28', // Ghibli brass/gold post finials
@@ -1055,8 +1055,8 @@ export function createPlatformerCourse(scene: THREE.Scene, seed = 42): Platforme
   // -------------------------------------------------------------
   // Checkpoint Gates, Lanterns, and Banners
   // -------------------------------------------------------------
-  const gateTimberGeo = new THREE.BoxGeometry(0.18, 2.45, 0.18);
-  const gateBeamGeo = new THREE.BoxGeometry(3.55, 0.2, 0.2);
+  const gateTimberGeo = new THREE.BoxGeometry(0.16, 2.15, 0.16);
+  const gateBeamGeo = new THREE.BoxGeometry(2.85, 0.16, 0.16);
   const lanternGeo = new THREE.DodecahedronGeometry(0.22, 1);
   ownedGeometries.add(gateTimberGeo);
   ownedGeometries.add(gateBeamGeo);
@@ -1071,36 +1071,36 @@ export function createPlatformerCourse(scene: THREE.Scene, seed = 42): Platforme
     cpGroup.rotation.y = cp.rotationY;
 
     // Torii / Arch Posts
-    const leftPost = new THREE.Mesh(gateTimberGeo, vermilionRailMat);
-    leftPost.position.set(-1.62, 1.22, 0);
+    const leftPost = new THREE.Mesh(gateTimberGeo, checkpointTimberMat);
+    leftPost.position.set(-1.30, 1.07, 0);
     leftPost.castShadow = true;
     cpGroup.add(leftPost);
 
-    const rightPost = new THREE.Mesh(gateTimberGeo, vermilionRailMat);
-    rightPost.position.set(1.62, 1.22, 0);
+    const rightPost = new THREE.Mesh(gateTimberGeo, checkpointTimberMat);
+    rightPost.position.set(1.30, 1.07, 0);
     rightPost.castShadow = true;
     cpGroup.add(rightPost);
 
     // Crossbar Beam
-    const crossBeam = new THREE.Mesh(gateBeamGeo, vermilionRailMat);
-    crossBeam.position.set(0, 2.32, 0);
+    const crossBeam = new THREE.Mesh(gateBeamGeo, checkpointTimberMat);
+    crossBeam.position.set(0, 2.03, 0);
     crossBeam.castShadow = true;
     cpGroup.add(crossBeam);
 
     // Gold Finials atop posts
     const finialL = new THREE.Mesh(new THREE.SphereGeometry(0.16, 6, 6), goldAccentMat);
-    finialL.position.set(-1.62, 2.58, 0);
+    finialL.position.set(-1.30, 2.24, 0);
     ownedGeometries.add(finialL.geometry);
     cpGroup.add(finialL);
 
     const finialR = new THREE.Mesh(new THREE.SphereGeometry(0.16, 6, 6), goldAccentMat);
-    finialR.position.set(1.62, 2.58, 0);
+    finialR.position.set(1.30, 2.24, 0);
     ownedGeometries.add(finialR.geometry);
     cpGroup.add(finialR);
 
     // Hanging Lantern
     const lantern = new THREE.Mesh(lanternGeo, lanternGlowMat);
-    lantern.position.set(0, 1.98, 0);
+    lantern.position.set(0, 1.72, 0);
     cpGroup.add(lantern);
 
     group.add(cpGroup);
