@@ -50,18 +50,15 @@ const routeSamples = COURSE_ROUTES.map((route) => {
     'centripetal',
     0.35,
   );
-  const points = curve.getPoints(COURSE_SAMPLE_COUNT);
-  return points.map((point, index): RouteSample => {
-    const before = points[Math.max(0, index - 1)];
-    const after = points[Math.min(points.length - 1, index + 1)];
-    const dx = after.x - before.x;
-    const dz = after.z - before.z;
-    const length = Math.hypot(dx, dz) || 1;
+  return Array.from({ length: COURSE_SAMPLE_COUNT + 1 }, (_, index): RouteSample => {
+    const t = index / COURSE_SAMPLE_COUNT;
+    const point = curve.getPointAt(t);
+    const tangent = curve.getTangentAt(t).setY(0).normalize();
     return {
       x: point.x,
       z: point.z,
-      tangentX: dx / length,
-      tangentZ: dz / length,
+      tangentX: tangent.x,
+      tangentZ: tangent.z,
       width: route.width,
     };
   });
@@ -84,8 +81,6 @@ export function getCourseSurface(
   terrainHeightAt: (x: number, z: number) => number,
 ): CourseSurface | null {
   let bestDistanceSq = Number.POSITIVE_INFINITY;
-  let bestX = 0;
-  let bestZ = 0;
   let bestWidth = 0;
   for (const samples of routeSamples) {
     for (let i = 0; i < samples.length - 1; i++) {
@@ -104,8 +99,6 @@ export function getCourseSurface(
       const distanceSq = ex * ex + ez * ez;
       if (distanceSq < bestDistanceSq) {
         bestDistanceSq = distanceSq;
-        bestX = px;
-        bestZ = pz;
         bestWidth = a.width;
       }
     }
