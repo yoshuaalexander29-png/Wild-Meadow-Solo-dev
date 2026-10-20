@@ -1175,10 +1175,8 @@ export function createPlatformerCourse(scene: THREE.Scene, seed = 42): Platforme
               const vy = verticalSpeed ?? 0;
 
               // Case A: Character is grounded on this course deck
-              if (
-                isGrounded &&
-                (previousSurfaceId === seg.id || Math.abs(characterY - deckHeight) < 0.65)
-              ) {
+              if (isGrounded && previousSurfaceId === seg.id) {
+                // Preserve support continuity when the controller already knows its deck.
                 return {
                   height: deckHeight,
                   normal: s.normal.clone(),
@@ -1188,6 +1186,27 @@ export function createPlatformerCourse(scene: THREE.Scene, seed = 42): Platforme
                   isDeepWater: false,
                   slopeAngle: Math.abs(s.gradeAngle),
                 };
+              }
+
+              if (isGrounded && Math.abs(characterY - deckHeight) < 0.65) {
+                // Do not return the first horizontally overlapping deck: a lower route
+                // can pass directly beneath an elevated one. Rank by vertical fit first.
+                const verticalError = Math.abs(characterY - deckHeight);
+                const currentError = bestCandidate
+                  ? Math.abs(characterY - bestCandidate.height)
+                  : Number.POSITIVE_INFINITY;
+                if (!bestCandidate || verticalError < currentError ||
+                    (verticalError === currentError && distSq < bestCandidate.distSq)) {
+                  bestCandidate = {
+                    height: deckHeight,
+                    normal: s.normal,
+                    segmentId: seg.id,
+                    feature: s.feature,
+                    distSq,
+                    crownSlope: Math.abs(s.gradeAngle),
+                  };
+                }
+                continue;
               }
 
               // Case B: Character is under the elevated deck (underpass headroom)
