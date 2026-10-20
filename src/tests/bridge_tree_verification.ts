@@ -720,4 +720,6 @@ console.log('\\nTest 16: Production controller buffered jump survives until land
 }
 console.log('PASS: A jump press buffered during descent is consumed by the live controller after ground contact.');
 
-\n\nconsole.log('=== ALL AUDIT TESTS PASSED SUCCESSFULLY ===');\n
+
+
+console.log('=== ALL AUDIT TESTS PASSED SUCCESSFULLY ===');
