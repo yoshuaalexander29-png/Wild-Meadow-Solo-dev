@@ -174,7 +174,7 @@ export function createMeadowCourse(scene: THREE.Scene): MeadowCourse {
       const terrainY = getTerrainHeight(_supportPoint.x, _supportPoint.z);
       plankPosition.set(
         _supportPoint.x,
-        terrainY + _supportPoint.y + COURSE_SURFACE_LIFT + 0.035,
+        terrainY + _supportPoint.y + 0.005,
         _supportPoint.z,
       );
       plankRotation.setFromUnitVectors(_up.clone().set(0, 0, 1), plankTangent);
