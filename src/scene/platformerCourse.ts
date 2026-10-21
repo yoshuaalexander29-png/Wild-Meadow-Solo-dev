@@ -793,21 +793,22 @@ export function createPlatformerCourse(scene: THREE.Scene, seed = 42): Platforme
   let isDisposed = false;
 
   // -------------------------------------------------------------
-  // Materials Palette (Ghibli Cel-Shaded Warm Meadow Aesthetic)
+  // Art-directed timber boardwalk palette: muted honey oak with restrained
+  // material response, integrated with the meadow rather than bright orange.
   // -------------------------------------------------------------
   const trackMat = new THREE.MeshStandardMaterial({
-    color: '#deb67a', // Warm packed earthen amber course planks
-    roughness: 0.82,
-    metalness: 0.04,
-    flatShading: true,
+    color: '#b88a52',
+    roughness: 0.92,
+    metalness: 0,
+    flatShading: false,
   });
   ownedMaterials.add(trackMat);
 
   const skillTrackMat = new THREE.MeshStandardMaterial({
-    color: '#e49348', // Vibrant cedar ochre for upper skill ramp & banked curve
-    roughness: 0.78,
-    metalness: 0.05,
-    flatShading: true,
+    color: '#c99b61',
+    roughness: 0.9,
+    metalness: 0,
+    flatShading: false,
   });
   ownedMaterials.add(skillTrackMat);
 
@@ -1271,7 +1272,7 @@ export function createPlatformerCourse(scene: THREE.Scene, seed = 42): Platforme
     const splitNode = data.nodes.find((node) => node.feature === 'split');
     if (
       splitNode &&
-      Math.hypot(charPos.x - splitNode.position.x, charPos.z - splitNode.position.z) < 2.1
+      Math.hypot(charPos.x - splitNode.position.x, charPos.z - splitNode.position.z) < 3.0
     ) {
       currentFeature = 'split';
     }
