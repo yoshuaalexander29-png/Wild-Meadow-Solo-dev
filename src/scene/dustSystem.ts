@@ -2,11 +2,11 @@ import * as THREE from 'three';
 import type { SurfaceType } from './terrain';
 
 /**
- * Breath of the Wild-Inspired Grounded Sprint Dust Trail System
+ * White Running Dust Trail System
  *
  * Implements the 3-layer responsive ground-contact VFX model:
  *  1. Footfall Puffs: Small, irregular bursts released when a foot contacts the ground.
- *  2. Trailing Dust: Faint particles left behind during sustained sprinting, with momentum
+ *  2. Trailing Dust: Neutral white puffs left behind during sustained sprinting, with momentum
  *     and a slight lateral spread (distance-accumulator driven).
  *  3. Ground Interaction: Particles inherit the ground's color family (warm beige on dry dirt,
  *     muted olive-green on dry grass, stone dust on rock) and fade as they rise.
@@ -180,7 +180,7 @@ export function createDustSystem(scene: THREE.Scene): DustSystem {
 
   const atlasTextures = createDustTextureAtlas();
 
-  // Pure Neutral White Color for Stylized Anime / Ghibli / BotW Dust Puffs
+  // Neutral white dust: keep the VFX white across all supported ground surfaces.
   const WHITE_DUST_COLOR = new THREE.Color('#ffffff');
 
   // 4 Shared Materials corresponding to the 4 atlas variants
@@ -223,7 +223,7 @@ export function createDustSystem(scene: THREE.Scene): DustSystem {
 
   // Distance accumulator for frame-rate independent sprint trailing emission
   let distanceAccumulator = 0;
-  const emissionSpacing = 0.46; // emit trailing particle every ~0.46m
+  const emissionSpacing = 0.42; // readable short trail without filling the whole screen
   let trailingFootToggle = 0;
   const lastPosition = new THREE.Vector3();
   let hasValidLastPos = false;
@@ -326,13 +326,13 @@ export function createDustSystem(scene: THREE.Scene): DustSystem {
             spawnY,
             spawnZ,
             color,
-            0.32 + Math.random() * 0.12,
-            0.72 + Math.random() * 0.25,
-            0.52 + Math.random() * 0.16,
+            0.34 + Math.random() * 0.12,
+            0.76 + Math.random() * 0.22,
+            0.56 + Math.random() * 0.14,
             velX,
             velY,
             velZ,
-            0.62
+            0.78
           );
         }
       } else {
@@ -416,7 +416,7 @@ export function createDustSystem(scene: THREE.Scene): DustSystem {
           velX,
           velY,
           velZ,
-          0.58
+          0.76
         );
       }
     },
